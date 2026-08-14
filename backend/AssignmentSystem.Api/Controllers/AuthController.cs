@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using AssignmentSystem.Api.Data;
 using AssignmentSystem.Api.DTOs;
+using AssignmentSystem.Api.Extensions;
 using AssignmentSystem.Api.Models;
 using AssignmentSystem.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -50,12 +50,7 @@ public class AuthController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<UserProfileResponse>> Me()
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-        if (userId is null || !Guid.TryParse(userId, out var id))
-        {
-            return Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Invalid token.");
-        }
-
+        var id = User.GetUserId();
         var user = await _context.Users.FindAsync(id);
         if (user is null)
         {

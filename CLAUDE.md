@@ -113,7 +113,27 @@ non-obvious that happened during it.
     silently ignored by ASP.NET Core's model validation (it throws `InvalidOperationException` at
     request time) — DataAnnotations on positional record parameters must target the parameter
     directly (`[Required] string Email`, no `property:` prefix), not the generated property.
-- [ ] **Phase 3** — Core Backend API (MVP slice)
+- [x] **Phase 3** — Core Backend API (MVP slice) — done 2026-08-14. `Controllers/AssignmentsController.cs`
+  (`POST /api/assignments` Teacher-only, forces `Status=Published` and takes `TeacherId` from the
+  JWT not the body; `GET /api/assignments` role-aware — Teacher: own, Student: own `ClassId`,
+  Admin: unfiltered; `GET /api/assignments/{id}` open to any authenticated role) and
+  `Controllers/SubmissionsController.cs` (`POST /api/assignments/{id}/submissions` Student-only,
+  403 if the assignment's `ClassId` doesn't match the student's; `GET
+  /api/assignments/{id}/submissions` and `PUT /api/submissions/{id}/grade` both Teacher-only with
+  an ownership check — 403 if `Assignment.TeacherId != callingUserId`; `GET /api/submissions/me`
+  Student-only). Added `Extensions/ClaimsPrincipalExtensions.cs` (`GetUserId()`) shared by all
+  three controllers, and refactored `AuthController.Me` to use it instead of duplicating the claim
+  parse. DTOs for both request/response shapes live in `DTOs/AssignmentDtos.cs` /
+  `DTOs/SubmissionDtos.cs` — no entities are exposed directly.
+  - Deliberately out of scope per the plan (deferred to Phase 5): deadline enforcement, resubmission
+    rules, marks-bounds validation, Draft/Publish toggle. `POST /assignments` always creates
+    `Published`; grading accepts any int for `Marks` today.
+  - Verified the full happy path end-to-end via curl against the running API + Docker Postgres:
+    teacher creates → student (same class) sees + submits → teacher sees + grades → student sees
+    marks/feedback. Also verified negative cases: Student hitting `POST /assignments` → 403;
+    Admin's `GET /assignments` is unfiltered; Student submitting to a different class's assignment
+    → 403. Test data created during verification was deleted afterward so the DB is back to the
+    Phase 1 seed-only state.
 - [ ] **Phase 4** — Frontend MVP ⭐ first submittable checkpoint
 - [ ] **Phase 5** — Business Rules & Validation
 - [ ] **Phase 6** — Admin Module
