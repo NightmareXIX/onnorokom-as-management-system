@@ -5,7 +5,11 @@ namespace AssignmentSystem.Api.DTOs;
 
 public record CreateSubmissionRequest([Required] string Content);
 
+public record UpdateSubmissionRequest([Required] string Content);
+
 public record GradeSubmissionRequest(int Marks, string? Feedback);
+
+public record UpdateSubmissionStatusRequest(SubmissionStatus Status);
 
 public record SubmissionResponse(
     Guid Id,

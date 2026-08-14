@@ -1,5 +1,6 @@
 using System.Text;
 using AssignmentSystem.Api.Data;
+using AssignmentSystem.Api.Middleware;
 using AssignmentSystem.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -87,6 +88,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

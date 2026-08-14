@@ -8,7 +8,7 @@ import { z } from "zod";
 import { AppHeader } from "@/components/AppHeader";
 import { api, getApiErrorMessage } from "@/lib/api";
 import { assignmentStatusLabel, formatDateTime } from "@/lib/format";
-import type { Assignment, ClassOption, SubjectOption } from "@/lib/types";
+import { AssignmentStatus, type Assignment, type ClassOption, type SubjectOption } from "@/lib/types";
 
 const assignmentSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -24,6 +24,7 @@ const assignmentSchema = z.object({
       "Must be a positive whole number"
     ),
   allowResubmission: z.boolean(),
+  status: z.enum(["Draft", "Published"]),
 });
 
 type AssignmentFormValues = z.infer<typeof assignmentSchema>;
@@ -52,6 +53,7 @@ export default function TeacherDashboardPage() {
       deadline: "",
       maxMarks: "",
       allowResubmission: false,
+      status: "Published",
     },
   });
 
@@ -94,6 +96,7 @@ export default function TeacherDashboardPage() {
         deadline: new Date(values.deadline).toISOString(),
         maxMarks: Number(values.maxMarks),
         allowResubmission: values.allowResubmission,
+        status: values.status === "Published" ? AssignmentStatus.Published : AssignmentStatus.Draft,
       });
       setFormSuccess("Assignment created.");
       reset();
@@ -198,7 +201,18 @@ export default function TeacherDashboardPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 sm:col-span-2">
+            <div>
+              <label className="block text-sm font-medium text-zinc-700">Status</label>
+              <select
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                {...register("status")}
+              >
+                <option value="Published">Published (visible to students)</option>
+                <option value="Draft">Draft (hidden until published)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
               <input
                 id="allowResubmission"
                 type="checkbox"

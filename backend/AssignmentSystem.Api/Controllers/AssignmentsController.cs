@@ -42,7 +42,7 @@ public class AssignmentsController : ControllerBase
             TeacherId = teacherId,
             Deadline = request.Deadline,
             MaxMarks = request.MaxMarks,
-            Status = AssignmentStatus.Published,
+            Status = request.Status,
             AllowResubmission = request.AllowResubmission,
             CreatedAt = DateTime.UtcNow
         };
@@ -77,7 +77,7 @@ public class AssignmentsController : ControllerBase
 
             query = classId is null
                 ? query.Where(a => false)
-                : query.Where(a => a.ClassId == classId);
+                : query.Where(a => a.ClassId == classId && a.Status == AssignmentStatus.Published);
         }
         // Admin: no filter — sees everything.
 
@@ -100,6 +100,96 @@ public class AssignmentsController : ControllerBase
         }
 
         return Ok(MapToResponse(assignment));
+    }
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<ActionResult<AssignmentResponse>> Update(Guid id, UpdateAssignmentRequest request)
+    {
+        var teacherId = User.GetUserId();
+
+        var assignment = await _context.Assignments.FindAsync(id);
+        if (assignment is null)
+        {
+            return NotFound();
+        }
+
+        if (assignment.TeacherId != teacherId)
+        {
+            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+        }
+
+        var classExists = await _context.Classes.AnyAsync(c => c.Id == request.ClassId);
+        var subjectExists = await _context.Subjects.AnyAsync(s => s.Id == request.SubjectId);
+        if (!classExists || !subjectExists)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "ClassId or SubjectId does not exist.");
+        }
+
+        assignment.Title = request.Title;
+        assignment.Description = request.Description;
+        assignment.ClassId = request.ClassId;
+        assignment.SubjectId = request.SubjectId;
+        assignment.Deadline = request.Deadline;
+        assignment.MaxMarks = request.MaxMarks;
+        assignment.AllowResubmission = request.AllowResubmission;
+        assignment.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(await LoadResponseAsync(assignment.Id));
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var teacherId = User.GetUserId();
+
+        var assignment = await _context.Assignments.FindAsync(id);
+        if (assignment is null)
+        {
+            return NotFound();
+        }
+
+        if (assignment.TeacherId != teacherId)
+        {
+            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+        }
+
+        _context.Assignments.Remove(assignment);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpPatch("{id:guid}/publish")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<ActionResult<AssignmentResponse>> Publish(Guid id)
+    {
+        var teacherId = User.GetUserId();
+
+        var assignment = await _context.Assignments.FindAsync(id);
+        if (assignment is null)
+        {
+            return NotFound();
+        }
+
+        if (assignment.TeacherId != teacherId)
+        {
+            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+        }
+
+        if (assignment.Status == AssignmentStatus.Published)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Assignment is already published.");
+        }
+
+        assignment.Status = AssignmentStatus.Published;
+        assignment.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return Ok(await LoadResponseAsync(assignment.Id));
     }
 
     private async Task<AssignmentResponse> LoadResponseAsync(Guid id)

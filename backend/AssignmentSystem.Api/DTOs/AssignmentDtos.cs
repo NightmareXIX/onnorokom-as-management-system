@@ -10,7 +10,18 @@ public record CreateAssignmentRequest(
     Guid SubjectId,
     DateTime Deadline,
     [Range(1, int.MaxValue)] int MaxMarks,
-    bool AllowResubmission = false
+    bool AllowResubmission = false,
+    AssignmentStatus Status = AssignmentStatus.Draft
+);
+
+public record UpdateAssignmentRequest(
+    [Required] string Title,
+    [Required] string Description,
+    Guid ClassId,
+    Guid SubjectId,
+    DateTime Deadline,
+    [Range(1, int.MaxValue)] int MaxMarks,
+    bool AllowResubmission
 );
 
 public record AssignmentResponse(

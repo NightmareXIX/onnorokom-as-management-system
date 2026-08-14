@@ -7,8 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AppHeader } from "@/components/AppHeader";
 import { api, getApiErrorMessage } from "@/lib/api";
-import { formatDateTime, submissionStatusLabel } from "@/lib/format";
-import { SubmissionStatus, type Assignment, type Submission } from "@/lib/types";
+import { assignmentStatusLabel, formatDateTime, submissionStatusLabel } from "@/lib/format";
+import { AssignmentStatus, SubmissionStatus, type Assignment, type Submission } from "@/lib/types";
 
 const gradeSchema = z.object({
   marks: z
@@ -103,6 +103,8 @@ export default function TeacherAssignmentDetailPage({
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -130,6 +132,19 @@ export default function TeacherAssignmentDetailPage({
     setSubmissions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
   };
 
+  const handlePublish = async () => {
+    setPublishError(null);
+    setIsPublishing(true);
+    try {
+      const response = await api.patch<Assignment>(`/assignments/${id}/publish`);
+      setAssignment(response.data);
+    } catch (e) {
+      setPublishError(getApiErrorMessage(e));
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col">
       <AppHeader
@@ -146,12 +161,30 @@ export default function TeacherAssignmentDetailPage({
 
         {assignment && (
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <h2 className="text-lg font-semibold text-zinc-900">{assignment.title}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-zinc-900">{assignment.title}</h2>
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                {assignmentStatusLabel(assignment.status)}
+              </span>
+            </div>
             <p className="mt-1 text-sm text-zinc-600">{assignment.description}</p>
             <p className="mt-2 text-sm text-zinc-500">
               {assignment.subjectName} · {assignment.className} · Due{" "}
               {formatDateTime(assignment.deadline)} · {assignment.maxMarks} marks
             </p>
+            {assignment.status === AssignmentStatus.Draft && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={handlePublish}
+                  disabled={isPublishing}
+                  className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isPublishing ? "Publishing…" : "Publish"}
+                </button>
+                {publishError && <p className="mt-1 text-sm text-red-600">{publishError}</p>}
+              </div>
+            )}
           </div>
         )}
 
