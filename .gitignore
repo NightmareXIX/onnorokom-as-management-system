@@ -1,0 +1,28 @@
+# --- .NET / backend ---
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+backend/**/appsettings.Development.json
+backend/**/appsettings.Local.json
+*.log
+
+# --- Node / frontend ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/npm-debug.log*
+frontend/*.tsbuildinfo
+
+# --- Environment files (never commit real secrets) ---
+.env
+.env.local
+frontend/.env.local
+backend/**/.env
+
+# --- Editor / OS ---
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
