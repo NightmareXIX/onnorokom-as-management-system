@@ -12,6 +12,27 @@ storage.
 - **Student** sees assignments for their own class, submits text answers before the deadline, and
   views their marks/feedback once graded.
 
+## Live Demo
+
+| | URL |
+|---|---|
+| Frontend | **https://assignment-system-frontend.vercel.app** |
+| Backend API | https://assignment-system-api-2bt9.onrender.com |
+| Swagger / OpenAPI | https://assignment-system-api-2bt9.onrender.com/swagger/index.html |
+
+Log in with any [demo credential](#demo-credentials) set below. The backend runs on Render's free
+tier (Docker web service) against a Render-managed PostgreSQL instance; the frontend runs on
+Vercel. Two things worth knowing before you click around:
+
+- **The API can take 30-60s to respond to the very first request** after a period of inactivity —
+  Render's free tier spins a service down after 15 minutes with no traffic and cold-starts it on
+  the next request. Subsequent requests are fast. If the first login attempt seems to hang, wait
+  and retry rather than assuming it's broken.
+- **The free Postgres instance expires 30 days after creation** (created 2026-08-14, so it lives
+  through ~2026-09-13) — a Render free-tier limit, not something this project controls. If the demo
+  links stop working after that date, it's this database expiring, not a regression; run the app
+  locally per the setup instructions below instead.
+
 ## Tech Stack
 
 | Layer | Technology |
