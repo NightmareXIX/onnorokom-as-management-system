@@ -78,7 +78,24 @@ non-obvious that happened during it.
   HTTP 200). NuGet packages for Npgsql/EFCore.Design/JwtBearer had to be pinned to `8.0.x`
   explicitly — `dotnet add package` without a version defaults to latest (10.x on this machine),
   which isn't compatible with the `net8.0` target. First commit `0fcb4e7`.
-- [ ] **Phase 1** — Database & Domain Models
+- [x] **Phase 1** — Database & Domain Models — done 2026-08-14. All entities/enums under `Models/`,
+  `Data/AppDbContext.cs` (Fluent API config: unique `User.Email`, `Assignment`→`Submission` is the
+  only `Cascade`, every other FK — including every FK that points at `User` — is `Restrict` to
+  avoid multi-cascade-path issues and to match "don't hard-delete users with history"),
+  `Data/SeedData.cs` (2 Classes, 3 Subjects, 3 demo users via `PasswordHasher<User>`, 2
+  TeacherAssignments, demo student's `ClassId` set). `InitialCreate` migration applied to the
+  Docker Postgres container; seed verified via direct `psql` query — 2/3/3/2/0/0 rows across
+  Classes/Subjects/Users/TeacherAssignments/Assignments/Submissions (the last two are correctly
+  empty — Phase 1's seed list never includes them). Removed the default `WeatherForecast`
+  scaffold files since Phase 1 is domain-only, no endpoints yet.
+  - NuGet gotcha: `dotnet add package` with no version picks the latest major (10.x on this
+    machine) which isn't `net8.0`-compatible — pin explicitly. Also keep
+    `Npgsql.EntityFrameworkCore.PostgreSQL`, `Microsoft.EntityFrameworkCore.Design`, and
+    `Microsoft.EntityFrameworkCore.InMemory` on the *same* EFCore version (currently all `8.0.11`)
+    or the Tests project throws MSB3277 assembly-version-conflict warnings at build time.
+  - Local dev connection string lives in `appsettings.Development.json` (gitignored, not
+    committed); `appsettings.json` only has an empty placeholder. Matches Section 5's env var
+    approach without needing dotnet to parse a root `.env` file directly.
 - [ ] **Phase 2** — Auth Backend
 - [ ] **Phase 3** — Core Backend API (MVP slice)
 - [ ] **Phase 4** — Frontend MVP ⭐ first submittable checkpoint
