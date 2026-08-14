@@ -96,7 +96,23 @@ non-obvious that happened during it.
   - Local dev connection string lives in `appsettings.Development.json` (gitignored, not
     committed); `appsettings.json` only has an empty placeholder. Matches Section 5's env var
     approach without needing dotnet to parse a root `.env` file directly.
-- [ ] **Phase 2** — Auth Backend
+- [x] **Phase 2** — Auth Backend — done 2026-08-14. `Services/TokenService.cs` issues HS256 JWTs
+  (claims: `sub`, `jti`, email, name, role — role uses `ClaimTypes.Role` so `[Authorize(Roles=...)]`
+  works out of the box). `Controllers/AuthController.cs`: `POST /api/auth/login` (`[AllowAnonymous]`,
+  verifies via `PasswordHasher<User>.VerifyHashedPassword`, returns `ProblemDetails` 401 on bad
+  email/password/inactive user) and `GET /api/auth/me` (reads `sub`/`NameIdentifier` claim, 401 if
+  missing/invalid). `Program.cs` wires JWT bearer auth + a default/fallback authorization policy
+  requiring an authenticated user, so every endpoint needs a token unless `[AllowAnonymous]`.
+  Swagger has a `Bearer` HTTP security scheme registered globally (padlock + global `security`
+  requirement in swagger.json) so protected endpoints are testable directly from Swagger UI.
+  `Jwt__*` settings added to `appsettings.json` (empty placeholders) and
+  `appsettings.Development.json` (real dev-only secret, gitignored). Verified end-to-end via curl
+  against the running API + Docker Postgres: all three demo accounts log in and `GET /me` returns
+  the correct role/profile; wrong password → 401 `ProblemDetails`; no token on `/me` → 401.
+  - Bug hit and fixed: `[property: Required]` on a C# record's primary-constructor parameter is
+    silently ignored by ASP.NET Core's model validation (it throws `InvalidOperationException` at
+    request time) — DataAnnotations on positional record parameters must target the parameter
+    directly (`[Required] string Email`, no `property:` prefix), not the generated property.
 - [ ] **Phase 3** — Core Backend API (MVP slice)
 - [ ] **Phase 4** — Frontend MVP ⭐ first submittable checkpoint
 - [ ] **Phase 5** — Business Rules & Validation
