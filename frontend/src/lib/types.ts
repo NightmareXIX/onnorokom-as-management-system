@@ -75,6 +75,27 @@ export interface Submission {
   gradedByTeacherId: string | null;
 }
 
+export interface AdminUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
+  classId: string | null;
+  className: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface TeacherAssignmentRecord {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  subjectId: string;
+  subjectName: string;
+  classId: string;
+  className: string;
+}
+
 export interface ProblemDetails {
   title?: string;
   detail?: string;

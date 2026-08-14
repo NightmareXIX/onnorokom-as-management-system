@@ -1,4 +1,4 @@
-import { AssignmentStatus, SubmissionStatus } from "./types";
+import { AssignmentStatus, SubmissionStatus, UserRole } from "./types";
 
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -19,5 +19,16 @@ export function submissionStatusLabel(status: SubmissionStatus): string {
       return "Returned for revision";
     default:
       return "Submitted";
+  }
+}
+
+export function userRoleLabel(role: UserRole): string {
+  switch (role) {
+    case UserRole.Admin:
+      return "Admin";
+    case UserRole.Teacher:
+      return "Teacher";
+    default:
+      return "Student";
   }
 }
