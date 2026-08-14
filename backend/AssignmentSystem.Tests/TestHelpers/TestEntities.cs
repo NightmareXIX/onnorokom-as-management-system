@@ -58,10 +58,12 @@ public static class TestEntities
         DateTime? deadline = null,
         int maxMarks = 100,
         bool allowResubmission = false,
-        AssignmentStatus status = AssignmentStatus.Published) => new()
+        AssignmentStatus status = AssignmentStatus.Published,
+        string title = "Test Assignment",
+        DateTime? createdAt = null) => new()
     {
         Id = Guid.NewGuid(),
-        Title = "Test Assignment",
+        Title = title,
         Description = "Test assignment description",
         TeacherId = teacherId,
         ClassId = classId,
@@ -70,20 +72,21 @@ public static class TestEntities
         MaxMarks = maxMarks,
         AllowResubmission = allowResubmission,
         Status = status,
-        CreatedAt = DateTime.UtcNow
+        CreatedAt = createdAt ?? DateTime.UtcNow
     };
 
     public static Submission NewSubmission(
         Guid assignmentId,
         Guid studentId,
         string content = "Test answer",
-        SubmissionStatus status = SubmissionStatus.Submitted) => new()
+        SubmissionStatus status = SubmissionStatus.Submitted,
+        DateTime? submittedAt = null) => new()
     {
         Id = Guid.NewGuid(),
         AssignmentId = assignmentId,
         StudentId = studentId,
         Content = content,
         Status = status,
-        SubmittedAt = DateTime.UtcNow
+        SubmittedAt = submittedAt ?? DateTime.UtcNow
     };
 }

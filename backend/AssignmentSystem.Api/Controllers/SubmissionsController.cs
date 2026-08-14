@@ -116,13 +116,15 @@ public class SubmissionsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        return Ok(MapToResponse(submission));
+        return Ok(SubmissionResponseMapper.Map(submission));
     }
 
-    /// <summary>Lists all submissions for an assignment (Teacher, owner only).</summary>
+    /// <summary>Lists all submissions for an assignment (Teacher, owner only). Supports paging and status/search (student name) filters.</summary>
     [HttpGet("assignments/{assignmentId:guid}/submissions")]
     [Authorize(Roles = "Teacher")]
-    public async Task<ActionResult<List<SubmissionResponse>>> GetForAssignment(Guid assignmentId)
+    public async Task<ActionResult<PagedResult<SubmissionResponse>>> GetForAssignment(
+        Guid assignmentId, int page = 1, int pageSize = 20,
+        SubmissionStatus? status = null, string? search = null)
     {
         var teacherId = User.GetUserId();
 
@@ -137,14 +139,33 @@ public class SubmissionsController : ControllerBase
             return Forbidden("You do not own this assignment.");
         }
 
-        var submissions = await _context.Submissions
+        (page, pageSize) = PagingDefaults.Clamp(page, pageSize);
+
+        var query = _context.Submissions
             .Include(s => s.Assignment)
             .Include(s => s.Student)
             .Where(s => s.AssignmentId == assignmentId)
+            .AsQueryable();
+
+        if (status is not null)
+        {
+            query = query.Where(s => s.Status == status);
+        }
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(s => s.Student!.FullName.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync();
+        var submissions = await query
             .OrderByDescending(s => s.SubmittedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return Ok(submissions.Select(MapToResponse).ToList());
+        return Ok(new PagedResult<SubmissionResponse>(
+            submissions.Select(SubmissionResponseMapper.Map).ToList(), page, pageSize, totalCount));
     }
 
     /// <summary>Grades a submission with marks and feedback (Teacher, owner only). Marks must be within [0, MaxMarks].</summary>
@@ -182,7 +203,7 @@ public class SubmissionsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        return Ok(MapToResponse(submission));
+        return Ok(SubmissionResponseMapper.Map(submission));
     }
 
     /// <summary>Transitions a submission's status, e.g. Graded to ReturnedForRevision (Teacher, owner only).</summary>
@@ -210,24 +231,49 @@ public class SubmissionsController : ControllerBase
         submission.Status = request.Status;
         await _context.SaveChangesAsync();
 
-        return Ok(MapToResponse(submission));
+        return Ok(SubmissionResponseMapper.Map(submission));
     }
 
-    /// <summary>Lists the calling student's own submissions with status, marks, and feedback.</summary>
+    /// <summary>Lists the calling student's own submissions with status, marks, and feedback. Supports paging and status/assignmentId/search (assignment title) filters.</summary>
     [HttpGet("submissions/me")]
     [Authorize(Roles = "Student")]
-    public async Task<ActionResult<List<SubmissionResponse>>> GetMine()
+    public async Task<ActionResult<PagedResult<SubmissionResponse>>> GetMine(
+        int page = 1, int pageSize = 20,
+        SubmissionStatus? status = null, Guid? assignmentId = null, string? search = null)
     {
         var studentId = User.GetUserId();
 
-        var submissions = await _context.Submissions
+        (page, pageSize) = PagingDefaults.Clamp(page, pageSize);
+
+        var query = _context.Submissions
             .Include(s => s.Assignment)
             .Include(s => s.Student)
             .Where(s => s.StudentId == studentId)
+            .AsQueryable();
+
+        if (status is not null)
+        {
+            query = query.Where(s => s.Status == status);
+        }
+        if (assignmentId is not null)
+        {
+            query = query.Where(s => s.AssignmentId == assignmentId);
+        }
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(s => s.Assignment!.Title.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync();
+        var submissions = await query
             .OrderByDescending(s => s.SubmittedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return Ok(submissions.Select(MapToResponse).ToList());
+        return Ok(new PagedResult<SubmissionResponse>(
+            submissions.Select(SubmissionResponseMapper.Map).ToList(), page, pageSize, totalCount));
     }
 
     private ObjectResult Forbidden(string title)
@@ -245,22 +291,6 @@ public class SubmissionsController : ControllerBase
             .Include(s => s.Student)
             .FirstAsync(s => s.Id == id);
 
-        return MapToResponse(submission);
+        return SubmissionResponseMapper.Map(submission);
     }
-
-    private static SubmissionResponse MapToResponse(Submission s) => new(
-        s.Id,
-        s.AssignmentId,
-        s.Assignment?.Title ?? string.Empty,
-        s.StudentId,
-        s.Student?.FullName ?? string.Empty,
-        s.Content,
-        s.Status,
-        s.Marks,
-        s.Feedback,
-        s.SubmittedAt,
-        s.UpdatedAt,
-        s.GradedAt,
-        s.GradedByTeacherId
-    );
 }

@@ -30,8 +30,8 @@ public class AssignmentVisibilityTests
         var result = await controller.GetAll();
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var list = okResult.Value.Should().BeAssignableTo<List<AssignmentResponse>>().Subject;
-        list.Select(a => a.Id).Should().BeEquivalentTo(new[] { published.Id });
+        var paged = okResult.Value.Should().BeAssignableTo<PagedResult<AssignmentResponse>>().Subject;
+        paged.Items.Select(a => a.Id).Should().BeEquivalentTo(new[] { published.Id });
     }
 
     [Fact]
@@ -55,8 +55,8 @@ public class AssignmentVisibilityTests
         var result = await controller.GetAll();
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var list = okResult.Value.Should().BeAssignableTo<List<AssignmentResponse>>().Subject;
-        list.Select(a => a.Id).Should().BeEquivalentTo(new[] { assignmentForA.Id });
+        var paged = okResult.Value.Should().BeAssignableTo<PagedResult<AssignmentResponse>>().Subject;
+        paged.Items.Select(a => a.Id).Should().BeEquivalentTo(new[] { assignmentForA.Id });
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class AssignmentVisibilityTests
         var result = await controller.GetAll();
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var list = okResult.Value.Should().BeAssignableTo<List<AssignmentResponse>>().Subject;
-        list.Select(a => a.Id).Should().BeEquivalentTo(new[] { ownPublished.Id, ownDraft.Id });
+        var paged = okResult.Value.Should().BeAssignableTo<PagedResult<AssignmentResponse>>().Subject;
+        paged.Items.Select(a => a.Id).Should().BeEquivalentTo(new[] { ownPublished.Id, ownDraft.Id });
     }
 }

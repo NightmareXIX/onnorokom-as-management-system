@@ -8,6 +8,8 @@ const TABS = [
   { href: "/admin/classes", label: "Classes" },
   { href: "/admin/subjects", label: "Subjects" },
   { href: "/admin/teacher-assignments", label: "Teacher Assignments" },
+  { href: "/admin/assignments", label: "Assignments" },
+  { href: "/admin/submissions", label: "Submissions" },
 ];
 
 export function AdminTabs() {

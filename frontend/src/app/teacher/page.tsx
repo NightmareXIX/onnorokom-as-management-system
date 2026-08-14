@@ -9,15 +9,19 @@ import { useToast } from "@/components/ToastProvider";
 import { Alert } from "@/components/ui/Alert";
 import { AssignmentStatusBadge, Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/form";
+import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
 import { api, getApiErrorMessage } from "@/lib/api";
 import { deadlineDistance, formatDateTime, isPastDeadline } from "@/lib/format";
 import { createAssignmentSchema, type CreateAssignmentFormValues } from "@/lib/schemas";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   AssignmentStatus,
   type Assignment,
   type ClassOption,
+  type PagedResult,
   type SubjectOption,
 } from "@/lib/types";
 
@@ -179,7 +183,7 @@ function NewAssignmentForm({
 
 export default function TeacherDashboardPage() {
   const { showToast } = useToast();
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [paged, setPaged] = useState<PagedResult<Assignment> | null>(null);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -187,14 +191,27 @@ export default function TeacherDashboardPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<"" | AssignmentStatus>("");
+  const [classFilter, setClassFilter] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+
   const load = useCallback(async () => {
     try {
+      const params: Record<string, string | number> = { page, pageSize: 20 };
+      if (statusFilter !== "") params.status = statusFilter;
+      if (classFilter) params.classId = classFilter;
+      if (subjectFilter) params.subjectId = subjectFilter;
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+
       const [assignmentsRes, classesRes, subjectsRes] = await Promise.all([
-        api.get<Assignment[]>("/assignments"),
+        api.get<PagedResult<Assignment>>("/assignments", { params }),
         api.get<ClassOption[]>("/classes"),
         api.get<SubjectOption[]>("/subjects"),
       ]);
-      setAssignments(assignmentsRes.data);
+      setPaged(assignmentsRes.data);
       setClasses(classesRes.data);
       setSubjects(subjectsRes.data);
       setLoadError(null);
@@ -203,7 +220,7 @@ export default function TeacherDashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [page, statusFilter, classFilter, subjectFilter, debouncedSearch]);
 
   useEffect(() => {
     // load is also reused by retry and after a create; its setState calls only run
@@ -212,11 +229,20 @@ export default function TeacherDashboardPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    // Filters changing should always jump back to page 1 so narrowing results doesn't
+    // strand the user off the end — a synchronous reset, not a derived-from-fetch update.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [statusFilter, classFilter, subjectFilter, debouncedSearch]);
+
   const handleRetry = async () => {
     setIsRetrying(true);
     await load();
     setIsRetrying(false);
   };
+
+  const assignments = paged?.items ?? [];
 
   return (
     <div className="flex flex-1 flex-col">
@@ -245,10 +271,59 @@ export default function TeacherDashboardPage() {
               onCreated={async () => {
                 setIsFormOpen(false);
                 showToast("Assignment created.");
+                setPage(1);
                 await load();
               }}
             />
           )}
+
+          <FilterBar className="mt-4">
+            <Select
+              label="Status"
+              wrapperClassName="w-40"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value === "" ? "" : (Number(e.target.value) as AssignmentStatus))
+              }
+            >
+              <option value="">All statuses</option>
+              <option value={AssignmentStatus.Published}>Published</option>
+              <option value={AssignmentStatus.Draft}>Draft</option>
+            </Select>
+            <Select
+              label="Class"
+              wrapperClassName="w-48"
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+            >
+              <option value="">All classes</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+            <Select
+              label="Subject"
+              wrapperClassName="w-48"
+              value={subjectFilter}
+              onChange={(e) => setSubjectFilter(e.target.value)}
+            >
+              <option value="">All subjects</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label="Search"
+              placeholder="Search by title…"
+              wrapperClassName="w-56"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </FilterBar>
 
           <div className="mt-4 space-y-3">
             {isLoading && <LoadingState label="Loading assignments…" />}
@@ -257,8 +332,8 @@ export default function TeacherDashboardPage() {
             )}
             {!isLoading && !loadError && assignments.length === 0 && (
               <EmptyState
-                title="No assignments yet"
-                description="Use the New Assignment button above to create your first one."
+                title="No assignments found"
+                description="Try adjusting your filters, or use the New Assignment button above to create one."
               />
             )}
             {!loadError &&
@@ -283,6 +358,15 @@ export default function TeacherDashboardPage() {
                   </p>
                 </Link>
               ))}
+            {!isLoading && !loadError && paged && (
+              <Pagination
+                page={paged.page}
+                totalPages={paged.totalPages}
+                totalCount={paged.totalCount}
+                pageSize={paged.pageSize}
+                onPageChange={setPage}
+              />
+            )}
           </div>
         </section>
       </main>

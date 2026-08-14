@@ -57,10 +57,14 @@ public class AssignmentsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = assignment.Id }, response);
     }
 
-    /// <summary>Lists assignments, filtered by role: Teacher sees own, Student sees own-class + Published, Admin sees all.</summary>
+    /// <summary>Lists assignments, filtered by role: Teacher sees own, Student sees own-class + Published, Admin sees all. Supports paging (page/pageSize) and, for Teacher/Admin, status/classId/subjectId/search filters — a Student's class/status is always server-forced and cannot be overridden via query params.</summary>
     [HttpGet]
-    public async Task<ActionResult<List<AssignmentResponse>>> GetAll()
+    public async Task<ActionResult<PagedResult<AssignmentResponse>>> GetAll(
+        int page = 1, int pageSize = 20,
+        AssignmentStatus? status = null, Guid? classId = null, Guid? subjectId = null, string? search = null)
     {
+        (page, pageSize) = PagingDefaults.Clamp(page, pageSize);
+
         var userId = User.GetUserId();
         var query = _context.Assignments
             .Include(a => a.Class)
@@ -71,22 +75,62 @@ public class AssignmentsController : ControllerBase
         if (User.IsInRole("Teacher"))
         {
             query = query.Where(a => a.TeacherId == userId);
+
+            if (status is not null)
+            {
+                query = query.Where(a => a.Status == status);
+            }
+            if (classId is not null)
+            {
+                query = query.Where(a => a.ClassId == classId);
+            }
         }
         else if (User.IsInRole("Student"))
         {
-            var classId = await _context.Users
+            var ownClassId = await _context.Users
                 .Where(u => u.Id == userId)
                 .Select(u => u.ClassId)
                 .FirstOrDefaultAsync();
 
-            query = classId is null
+            // Forced and unconditional: a Student's incoming `status`/`classId` query params
+            // are never read in this branch, so there is no path for a Student to see a Draft
+            // assignment or another class's assignments via query-string manipulation.
+            query = ownClassId is null
                 ? query.Where(a => false)
-                : query.Where(a => a.ClassId == classId && a.Status == AssignmentStatus.Published);
+                : query.Where(a => a.ClassId == ownClassId && a.Status == AssignmentStatus.Published);
         }
-        // Admin: no filter — sees everything.
+        else
+        {
+            // Admin: no ownership/forced filter — sees everything, all filters optional.
+            if (status is not null)
+            {
+                query = query.Where(a => a.Status == status);
+            }
+            if (classId is not null)
+            {
+                query = query.Where(a => a.ClassId == classId);
+            }
+        }
 
-        var assignments = await query.OrderByDescending(a => a.CreatedAt).ToListAsync();
-        return Ok(assignments.Select(MapToResponse).ToList());
+        if (subjectId is not null)
+        {
+            query = query.Where(a => a.SubjectId == subjectId);
+        }
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(a => a.Title.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync();
+        var assignments = await query
+            .OrderByDescending(a => a.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return Ok(new PagedResult<AssignmentResponse>(
+            assignments.Select(AssignmentResponseMapper.Map).ToList(), page, pageSize, totalCount));
     }
 
     /// <summary>Gets a single assignment by id. Open to any authenticated role.</summary>
@@ -104,7 +148,7 @@ public class AssignmentsController : ControllerBase
             return NotFound();
         }
 
-        return Ok(MapToResponse(assignment));
+        return Ok(AssignmentResponseMapper.Map(assignment));
     }
 
     /// <summary>Updates an assignment's fields (Teacher, owner only).</summary>
@@ -216,24 +260,6 @@ public class AssignmentsController : ControllerBase
             .Include(a => a.Teacher)
             .FirstAsync(a => a.Id == id);
 
-        return MapToResponse(assignment);
+        return AssignmentResponseMapper.Map(assignment);
     }
-
-    private static AssignmentResponse MapToResponse(Assignment a) => new(
-        a.Id,
-        a.Title,
-        a.Description,
-        a.ClassId,
-        a.Class?.Name ?? string.Empty,
-        a.SubjectId,
-        a.Subject?.Name ?? string.Empty,
-        a.TeacherId,
-        a.Teacher?.FullName ?? string.Empty,
-        a.Deadline,
-        a.MaxMarks,
-        a.Status,
-        a.AllowResubmission,
-        a.CreatedAt,
-        a.UpdatedAt
-    );
 }

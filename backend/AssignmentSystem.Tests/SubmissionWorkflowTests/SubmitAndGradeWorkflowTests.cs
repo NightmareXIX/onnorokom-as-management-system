@@ -37,8 +37,8 @@ public class SubmitAndGradeWorkflowTests
         teacherController.SetUser(teacher.Id, UserRole.Teacher);
         var listResult = await teacherController.GetForAssignment(assignment.Id);
         var listOk = listResult.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var list = listOk.Value.Should().BeAssignableTo<List<SubmissionResponse>>().Subject;
-        list.Should().ContainSingle(s => s.Id == submission.Id);
+        var paged = listOk.Value.Should().BeAssignableTo<PagedResult<SubmissionResponse>>().Subject;
+        paged.Items.Should().ContainSingle(s => s.Id == submission.Id);
 
         // Teacher grades it.
         var gradeResult = await teacherController.Grade(submission.Id, new GradeSubmissionRequest(92, "Great work"));
@@ -54,8 +54,8 @@ public class SubmitAndGradeWorkflowTests
         studentController.SetUser(student.Id, UserRole.Student);
         var mineResult = await studentController.GetMine();
         var mineOk = mineResult.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var mine = mineOk.Value.Should().BeAssignableTo<List<SubmissionResponse>>().Subject;
-        mine.Should().ContainSingle(s => s.Id == submission.Id && s.Marks == 92);
+        var minePaged = mineOk.Value.Should().BeAssignableTo<PagedResult<SubmissionResponse>>().Subject;
+        minePaged.Items.Should().ContainSingle(s => s.Id == submission.Id && s.Marks == 92);
     }
 
     [Fact]
