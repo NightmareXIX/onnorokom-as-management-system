@@ -5,6 +5,7 @@ using AssignmentSystem.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AssignmentSystem.Tests.BusinessRuleTests;
 
@@ -23,7 +24,7 @@ public class DeadlineEnforcementTests
         db.AddRange(cls, subject, teacher, student, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Create(assignment.Id, new CreateSubmissionRequest("late answer"));
@@ -46,7 +47,7 @@ public class DeadlineEnforcementTests
         db.AddRange(cls, subject, teacher, student, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Create(assignment.Id, new CreateSubmissionRequest("on-time answer"));

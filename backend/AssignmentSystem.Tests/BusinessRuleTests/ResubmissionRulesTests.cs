@@ -4,6 +4,7 @@ using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AssignmentSystem.Tests.BusinessRuleTests;
 
@@ -23,7 +24,7 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("edited answer"));
@@ -47,7 +48,7 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("too late edit"));
@@ -71,7 +72,7 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, owner, otherStudent, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(otherStudent.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("not mine to edit"));
@@ -99,7 +100,7 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("revised answer"));

@@ -16,6 +16,7 @@ public class ClassesController : ControllerBase
         _context = context;
     }
 
+    /// <summary>Lists all classes. Open to any authenticated role (used for form dropdowns).</summary>
     [HttpGet]
     public async Task<ActionResult<List<ClassResponse>>> GetAll()
     {

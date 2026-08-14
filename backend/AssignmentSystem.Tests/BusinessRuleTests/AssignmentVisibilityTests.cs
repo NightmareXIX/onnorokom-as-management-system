@@ -4,6 +4,7 @@ using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AssignmentSystem.Tests.BusinessRuleTests;
 
@@ -23,7 +24,7 @@ public class AssignmentVisibilityTests
         db.AddRange(cls, subject, teacher, student, published, draft);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.GetAll();
@@ -48,7 +49,7 @@ public class AssignmentVisibilityTests
         db.AddRange(classA, classB, subject, teacher, studentInA, assignmentForA, assignmentForB);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
         controller.SetUser(studentInA.Id, UserRole.Student);
 
         var result = await controller.GetAll();
@@ -73,7 +74,7 @@ public class AssignmentVisibilityTests
         db.AddRange(cls, subject, teacher, otherTeacher, ownPublished, ownDraft, someoneElses);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.GetAll();

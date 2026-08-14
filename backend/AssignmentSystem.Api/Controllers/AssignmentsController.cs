@@ -13,12 +13,15 @@ namespace AssignmentSystem.Api.Controllers;
 public class AssignmentsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<AssignmentsController> _logger;
 
-    public AssignmentsController(AppDbContext context)
+    public AssignmentsController(AppDbContext context, ILogger<AssignmentsController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
+    /// <summary>Creates an assignment (Teacher only). The caller becomes the owning teacher.</summary>
     [HttpPost]
     [Authorize(Roles = "Teacher")]
     public async Task<ActionResult<AssignmentResponse>> Create(CreateAssignmentRequest request)
@@ -54,6 +57,7 @@ public class AssignmentsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = assignment.Id }, response);
     }
 
+    /// <summary>Lists assignments, filtered by role: Teacher sees own, Student sees own-class + Published, Admin sees all.</summary>
     [HttpGet]
     public async Task<ActionResult<List<AssignmentResponse>>> GetAll()
     {
@@ -85,6 +89,7 @@ public class AssignmentsController : ControllerBase
         return Ok(assignments.Select(MapToResponse).ToList());
     }
 
+    /// <summary>Gets a single assignment by id. Open to any authenticated role.</summary>
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<AssignmentResponse>> GetById(Guid id)
     {
@@ -102,6 +107,7 @@ public class AssignmentsController : ControllerBase
         return Ok(MapToResponse(assignment));
     }
 
+    /// <summary>Updates an assignment's fields (Teacher, owner only).</summary>
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Teacher")]
     public async Task<ActionResult<AssignmentResponse>> Update(Guid id, UpdateAssignmentRequest request)
@@ -116,7 +122,7 @@ public class AssignmentsController : ControllerBase
 
         if (assignment.TeacherId != teacherId)
         {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+            return Forbidden("You do not own this assignment.");
         }
 
         var classExists = await _context.Classes.AnyAsync(c => c.Id == request.ClassId);
@@ -140,6 +146,7 @@ public class AssignmentsController : ControllerBase
         return Ok(await LoadResponseAsync(assignment.Id));
     }
 
+    /// <summary>Deletes an assignment (Teacher, owner only).</summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> Delete(Guid id)
@@ -154,7 +161,7 @@ public class AssignmentsController : ControllerBase
 
         if (assignment.TeacherId != teacherId)
         {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+            return Forbidden("You do not own this assignment.");
         }
 
         _context.Assignments.Remove(assignment);
@@ -163,6 +170,7 @@ public class AssignmentsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Transitions an assignment from Draft to Published (Teacher, owner only).</summary>
     [HttpPatch("{id:guid}/publish")]
     [Authorize(Roles = "Teacher")]
     public async Task<ActionResult<AssignmentResponse>> Publish(Guid id)
@@ -177,7 +185,7 @@ public class AssignmentsController : ControllerBase
 
         if (assignment.TeacherId != teacherId)
         {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+            return Forbidden("You do not own this assignment.");
         }
 
         if (assignment.Status == AssignmentStatus.Published)
@@ -190,6 +198,14 @@ public class AssignmentsController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(await LoadResponseAsync(assignment.Id));
+    }
+
+    private ObjectResult Forbidden(string title)
+    {
+        _logger.LogWarning(
+            "Authorization rejected (403): user {UserId} -> {Title} ({Method} {Path})",
+            User.GetUserId(), title, Request.Method, Request.Path);
+        return Problem(statusCode: StatusCodes.Status403Forbidden, title: title);
     }
 
     private async Task<AssignmentResponse> LoadResponseAsync(Guid id)

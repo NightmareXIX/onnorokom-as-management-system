@@ -4,6 +4,7 @@ using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AssignmentSystem.Tests.BusinessRuleTests;
 
@@ -23,7 +24,7 @@ public class MarksBoundsTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.Grade(submission.Id, new GradeSubmissionRequest(150, "too high"));
@@ -46,7 +47,7 @@ public class MarksBoundsTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.Grade(submission.Id, new GradeSubmissionRequest(-5, "negative"));
@@ -69,7 +70,7 @@ public class MarksBoundsTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.Grade(submission.Id, new GradeSubmissionRequest(85, "good job"));

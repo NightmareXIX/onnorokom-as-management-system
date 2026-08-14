@@ -4,6 +4,7 @@ using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AssignmentSystem.Tests.AuthorizationTests;
 
@@ -24,7 +25,7 @@ public class OwnershipTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var result = await controller.Grade(submission.Id, new GradeSubmissionRequest(90, "not yours to grade"));
@@ -48,7 +49,7 @@ public class OwnershipTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var result = await controller.GetForAssignment(assignment.Id);
@@ -70,7 +71,7 @@ public class OwnershipTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var request = new UpdateAssignmentRequest(
@@ -94,7 +95,7 @@ public class OwnershipTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var result = await controller.Publish(assignment.Id);

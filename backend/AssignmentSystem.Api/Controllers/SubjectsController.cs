@@ -16,6 +16,7 @@ public class SubjectsController : ControllerBase
         _context = context;
     }
 
+    /// <summary>Lists all subjects. Open to any authenticated role (used for form dropdowns).</summary>
     [HttpGet]
     public async Task<ActionResult<List<SubjectResponse>>> GetAll()
     {

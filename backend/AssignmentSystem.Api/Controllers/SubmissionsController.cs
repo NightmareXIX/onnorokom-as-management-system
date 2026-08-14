@@ -13,12 +13,15 @@ namespace AssignmentSystem.Api.Controllers;
 public class SubmissionsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<SubmissionsController> _logger;
 
-    public SubmissionsController(AppDbContext context)
+    public SubmissionsController(AppDbContext context, ILogger<SubmissionsController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
+    /// <summary>Submits an answer to an assignment (Student only). Blocked after the deadline or if already submitted.</summary>
     [HttpPost("assignments/{assignmentId:guid}/submissions")]
     [Authorize(Roles = "Student")]
     public async Task<ActionResult<SubmissionResponse>> Create(Guid assignmentId, CreateSubmissionRequest request)
@@ -34,7 +37,7 @@ public class SubmissionsController : ControllerBase
         var student = await _context.Users.FindAsync(studentId);
         if (student?.ClassId is null || assignment.ClassId != student.ClassId)
         {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "This assignment is not in your class.");
+            return Forbidden("This assignment is not in your class.");
         }
 
         if (assignment.Status != AssignmentStatus.Published)
@@ -71,6 +74,7 @@ public class SubmissionsController : ControllerBase
         return CreatedAtAction(nameof(GetForAssignment), new { assignmentId }, response);
     }
 
+    /// <summary>Updates (resubmits) an existing submission (Student, owner only). Blocked if resubmission isn't allowed or the deadline has passed.</summary>
     [HttpPut("submissions/{id:guid}")]
     [Authorize(Roles = "Student")]
     public async Task<ActionResult<SubmissionResponse>> Update(Guid id, UpdateSubmissionRequest request)
@@ -89,7 +93,7 @@ public class SubmissionsController : ControllerBase
 
         if (submission.StudentId != studentId)
         {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this submission.");
+            return Forbidden("You do not own this submission.");
         }
 
         if (!submission.Assignment!.AllowResubmission)
@@ -115,6 +119,7 @@ public class SubmissionsController : ControllerBase
         return Ok(MapToResponse(submission));
     }
 
+    /// <summary>Lists all submissions for an assignment (Teacher, owner only).</summary>
     [HttpGet("assignments/{assignmentId:guid}/submissions")]
     [Authorize(Roles = "Teacher")]
     public async Task<ActionResult<List<SubmissionResponse>>> GetForAssignment(Guid assignmentId)
@@ -129,7 +134,7 @@ public class SubmissionsController : ControllerBase
 
         if (assignment.TeacherId != teacherId)
         {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+            return Forbidden("You do not own this assignment.");
         }
 
         var submissions = await _context.Submissions
@@ -142,6 +147,7 @@ public class SubmissionsController : ControllerBase
         return Ok(submissions.Select(MapToResponse).ToList());
     }
 
+    /// <summary>Grades a submission with marks and feedback (Teacher, owner only). Marks must be within [0, MaxMarks].</summary>
     [HttpPut("submissions/{id:guid}/grade")]
     [Authorize(Roles = "Teacher")]
     public async Task<ActionResult<SubmissionResponse>> Grade(Guid id, GradeSubmissionRequest request)
@@ -160,7 +166,7 @@ public class SubmissionsController : ControllerBase
 
         if (submission.Assignment!.TeacherId != teacherId)
         {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+            return Forbidden("You do not own this assignment.");
         }
 
         if (request.Marks < 0 || request.Marks > submission.Assignment.MaxMarks)
@@ -179,6 +185,7 @@ public class SubmissionsController : ControllerBase
         return Ok(MapToResponse(submission));
     }
 
+    /// <summary>Transitions a submission's status, e.g. Graded to ReturnedForRevision (Teacher, owner only).</summary>
     [HttpPatch("submissions/{id:guid}/status")]
     [Authorize(Roles = "Teacher")]
     public async Task<ActionResult<SubmissionResponse>> UpdateStatus(Guid id, UpdateSubmissionStatusRequest request)
@@ -197,7 +204,7 @@ public class SubmissionsController : ControllerBase
 
         if (submission.Assignment!.TeacherId != teacherId)
         {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "You do not own this assignment.");
+            return Forbidden("You do not own this assignment.");
         }
 
         submission.Status = request.Status;
@@ -206,6 +213,7 @@ public class SubmissionsController : ControllerBase
         return Ok(MapToResponse(submission));
     }
 
+    /// <summary>Lists the calling student's own submissions with status, marks, and feedback.</summary>
     [HttpGet("submissions/me")]
     [Authorize(Roles = "Student")]
     public async Task<ActionResult<List<SubmissionResponse>>> GetMine()
@@ -220,6 +228,14 @@ public class SubmissionsController : ControllerBase
             .ToListAsync();
 
         return Ok(submissions.Select(MapToResponse).ToList());
+    }
+
+    private ObjectResult Forbidden(string title)
+    {
+        _logger.LogWarning(
+            "Authorization rejected (403): user {UserId} -> {Title} ({Method} {Path})",
+            User.GetUserId(), title, Request.Method, Request.Path);
+        return Problem(statusCode: StatusCodes.Status403Forbidden, title: title);
     }
 
     private async Task<SubmissionResponse> LoadResponseAsync(Guid id)

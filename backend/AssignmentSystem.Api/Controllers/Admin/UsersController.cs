@@ -21,6 +21,7 @@ public class UsersController : ControllerBase
         _context = context;
     }
 
+    /// <summary>Lists all users, including inactive ones (Admin only).</summary>
     [HttpGet]
     public async Task<ActionResult<List<UserResponse>>> GetAll()
     {
@@ -32,6 +33,7 @@ public class UsersController : ControllerBase
         return Ok(users.Select(MapToResponse).ToList());
     }
 
+    /// <summary>Creates a new user account (Admin only). Students require a valid ClassId.</summary>
     [HttpPost]
     public async Task<ActionResult<UserResponse>> Create(CreateUserRequest request)
     {
@@ -69,6 +71,7 @@ public class UsersController : ControllerBase
         return CreatedAtAction(nameof(GetAll), response);
     }
 
+    /// <summary>Updates a user's profile, role, class, and active status (Admin only). Also used to reactivate a deactivated user.</summary>
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<UserResponse>> Update(Guid id, UpdateUserRequest request)
     {
@@ -104,6 +107,7 @@ public class UsersController : ControllerBase
         return Ok(await LoadResponseAsync(user.Id));
     }
 
+    /// <summary>Deactivates a user (Admin only). Soft-delete only — users with history are never hard-deleted.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Deactivate(Guid id)
     {

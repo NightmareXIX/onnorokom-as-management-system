@@ -19,6 +19,7 @@ public class TeacherAssignmentsController : ControllerBase
         _context = context;
     }
 
+    /// <summary>Lists all teacher/subject/class assignments (Admin only).</summary>
     [HttpGet]
     public async Task<ActionResult<List<TeacherAssignmentResponse>>> GetAll()
     {
@@ -32,6 +33,7 @@ public class TeacherAssignmentsController : ControllerBase
         return Ok(items.Select(MapToResponse).ToList());
     }
 
+    /// <summary>Assigns a teacher to teach a subject to a class (Admin only). Rejects exact duplicates.</summary>
     [HttpPost]
     public async Task<ActionResult<TeacherAssignmentResponse>> Create(CreateTeacherAssignmentRequest request)
     {
@@ -70,6 +72,7 @@ public class TeacherAssignmentsController : ControllerBase
         return CreatedAtAction(nameof(GetAll), response);
     }
 
+    /// <summary>Removes a teacher/subject/class assignment (Admin only).</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {

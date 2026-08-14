@@ -19,6 +19,7 @@ public class ClassesController : ControllerBase
         _context = context;
     }
 
+    /// <summary>Lists all classes (Admin only).</summary>
     [HttpGet]
     public async Task<ActionResult<List<ClassResponse>>> GetAll()
     {
@@ -30,6 +31,7 @@ public class ClassesController : ControllerBase
         return Ok(classes);
     }
 
+    /// <summary>Creates a new class (Admin only).</summary>
     [HttpPost]
     public async Task<ActionResult<ClassResponse>> Create(CreateClassRequest request)
     {
@@ -47,6 +49,7 @@ public class ClassesController : ControllerBase
         return CreatedAtAction(nameof(GetAll), response);
     }
 
+    /// <summary>Updates a class's name/description (Admin only).</summary>
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<ClassResponse>> Update(Guid id, UpdateClassRequest request)
     {
@@ -63,6 +66,7 @@ public class ClassesController : ControllerBase
         return Ok(new ClassResponse(cls.Id, cls.Name, cls.Description));
     }
 
+    /// <summary>Deletes a class (Admin only). Rejected with 400 if the class is referenced by users, assignments, or teacher assignments.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {

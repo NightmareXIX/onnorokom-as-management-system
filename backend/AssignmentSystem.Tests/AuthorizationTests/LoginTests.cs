@@ -7,6 +7,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AssignmentSystem.Tests.AuthorizationTests;
 
@@ -46,7 +47,7 @@ public class LoginTests
         var (db, user) = await SeedUserAsync("Correct@123");
         await using var _ = db;
 
-        var controller = new AuthController(db, CreateTokenService());
+        var controller = new AuthController(db, CreateTokenService(), NullLogger<AuthController>.Instance);
         controller.SetAnonymousHttpContext();
 
         var result = await controller.Login(new LoginRequest(user.Email, "Wrong@123"));
@@ -61,7 +62,7 @@ public class LoginTests
         var (db, _) = await SeedUserAsync("Correct@123");
         await using var _ = db;
 
-        var controller = new AuthController(db, CreateTokenService());
+        var controller = new AuthController(db, CreateTokenService(), NullLogger<AuthController>.Instance);
         controller.SetAnonymousHttpContext();
 
         var result = await controller.Login(new LoginRequest("nobody@test.local", "Correct@123"));
@@ -76,7 +77,7 @@ public class LoginTests
         var (db, user) = await SeedUserAsync("Correct@123", isActive: false);
         await using var _ = db;
 
-        var controller = new AuthController(db, CreateTokenService());
+        var controller = new AuthController(db, CreateTokenService(), NullLogger<AuthController>.Instance);
         controller.SetAnonymousHttpContext();
 
         var result = await controller.Login(new LoginRequest(user.Email, "Correct@123"));
@@ -91,7 +92,7 @@ public class LoginTests
         var (db, user) = await SeedUserAsync("Correct@123");
         await using var _ = db;
 
-        var controller = new AuthController(db, CreateTokenService());
+        var controller = new AuthController(db, CreateTokenService(), NullLogger<AuthController>.Instance);
         controller.SetAnonymousHttpContext();
 
         var result = await controller.Login(new LoginRequest(user.Email, "Correct@123"));

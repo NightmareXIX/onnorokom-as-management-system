@@ -17,6 +17,7 @@ public class OversightController : ControllerBase
         _context = context;
     }
 
+    /// <summary>Lists every assignment in the system, any status, unfiltered by owner (Admin only, oversight view).</summary>
     [HttpGet("api/admin/assignments")]
     public async Task<ActionResult<List<AssignmentResponse>>> GetAllAssignments()
     {
@@ -48,6 +49,7 @@ public class OversightController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>Lists every submission in the system, unfiltered by owner (Admin only, oversight view).</summary>
     [HttpGet("api/admin/submissions")]
     public async Task<ActionResult<List<SubmissionResponse>>> GetAllSubmissions()
     {

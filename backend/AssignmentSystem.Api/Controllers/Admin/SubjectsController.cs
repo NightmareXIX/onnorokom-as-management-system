@@ -19,6 +19,7 @@ public class SubjectsController : ControllerBase
         _context = context;
     }
 
+    /// <summary>Lists all subjects (Admin only).</summary>
     [HttpGet]
     public async Task<ActionResult<List<SubjectResponse>>> GetAll()
     {
@@ -30,6 +31,7 @@ public class SubjectsController : ControllerBase
         return Ok(subjects);
     }
 
+    /// <summary>Creates a new subject (Admin only).</summary>
     [HttpPost]
     public async Task<ActionResult<SubjectResponse>> Create(CreateSubjectRequest request)
     {
@@ -47,6 +49,7 @@ public class SubjectsController : ControllerBase
         return CreatedAtAction(nameof(GetAll), response);
     }
 
+    /// <summary>Updates a subject's name/code (Admin only).</summary>
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<SubjectResponse>> Update(Guid id, UpdateSubjectRequest request)
     {
@@ -63,6 +66,7 @@ public class SubjectsController : ControllerBase
         return Ok(new SubjectResponse(subject.Id, subject.Name, subject.Code));
     }
 
+    /// <summary>Deletes a subject (Admin only). Rejected with 400 if the subject is referenced by assignments or teacher assignments.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
