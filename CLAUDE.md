@@ -134,7 +134,46 @@ non-obvious that happened during it.
     Admin's `GET /assignments` is unfiltered; Student submitting to a different class's assignment
     → 403. Test data created during verification was deleted afterward so the DB is back to the
     Phase 1 seed-only state.
-- [ ] **Phase 4** — Frontend MVP ⭐ first submittable checkpoint
+- [x] **Phase 4** — Frontend MVP ⭐ first submittable checkpoint — done 2026-08-14. `lib/api.ts`
+  (axios instance + auth-header interceptor + `getStoredAuth`/`setStoredAuth` as the single
+  localStorage source of truth), `lib/auth-context.tsx` (`AuthProvider`/`useAuth`,
+  `login()`/`logout()`), `lib/types.ts` (DTO mirror), `lib/format.ts`, `components/RoleGuard.tsx`
+  (layout-level redirect-to-`/login`-or-own-home guard), `components/AppHeader.tsx`. Pages: `/login`
+  (react-hook-form + zod), `/teacher` (list + New Assignment form with class/subject dropdowns),
+  `/teacher/assignments/[id]` (submissions + inline grade form), `/student` (own-class list),
+  `/student/assignments/[id]` (detail + submit-once textarea, read-only once a submission exists),
+  `/student/submissions` (marks/feedback), `/admin` (placeholder stub — full module is Phase 6, but
+  login/routing for the Admin role work end to end). Root `/` redirects by auth state.
+  - Two backend additions were needed to unblock this phase and got folded in here rather than
+    waiting for their nominally later phase: **CORS** (`Program.cs` — `Cors:AllowedOrigins` config,
+    defaults to `http://localhost:3000`) since nothing in Phases 2–3 had a browser client yet, and
+    **`GET /api/classes` / `GET /api/subjects`** (`ClassesController`, `SubjectsController` — open
+    to any authenticated role, per BUILD_PLAN Section 4's "Shared" API surface) since the New
+    Assignment form's dropdowns need them and Phase 3 never built them.
+  - `frontend/.env.local` (gitignored) points `NEXT_PUBLIC_API_URL` at `http://localhost:5080/api`
+    — matches how the backend was run manually during this session (`dotnet run --urls
+    http://localhost:5080`), not the `launchSettings.json` default (`5287`). Whoever runs this next
+    should pick one consistently; Phase 10's README should state it explicitly.
+  - **Next.js 16 breaking change, exactly as `frontend/AGENTS.md` warned:** `eslint-config-next`
+    now enables React Compiler lint rules, including `react-hooks/set-state-in-effect` as a hard
+    error — it flags not just synchronous `setState` before any `await` in an effect, but *any*
+    `useCallback`-defined loader function called from an effect if that function calls `setState`
+    anywhere in its body, even after an `await`. Fixed by (a) restructuring page-level data-fetch
+    effects to drop the redundant synchronous `setLoading(true)/setError(null)` resets at the top
+    (the `useState` initial values already cover first mount) so all state updates happen after the
+    `await`, and (b) for the handful of cases the rule still flagged (shared loader functions also
+    reused by event handlers, and the one genuinely-synchronous localStorage read in
+    `auth-context.tsx`'s mount effect — which can't be moved past an `await` and can't safely move
+    into a `useState` lazy initializer either, since that would read `window.localStorage` during
+    the client's hydration render while the server render saw `undefined`, causing a hydration
+    mismatch) adding a targeted `// eslint-disable-next-line react-hooks/set-state-in-effect` with a
+    comment explaining why. `npm run lint` and `npm run build` are both clean.
+  - Verified with a real headless-Chromium session (Playwright, installed ad hoc into the scratch
+    dir — not added to `package.json`) rather than just curl: two parallel logged-in sessions
+    (teacher + student) ran the full happy path end to end — create → see → submit → see → grade →
+    see marks/feedback — with zero browser console errors on either session. Also checked every
+    page at a 375px mobile viewport: no horizontal overflow, no broken layout. Test data created
+    during verification was deleted from the DB afterward.
 - [ ] **Phase 5** — Business Rules & Validation
 - [ ] **Phase 6** — Admin Module
 - [ ] **Phase 7** — Unit Tests
