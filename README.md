@@ -50,6 +50,7 @@ repo/
       lib/                    # api client, auth context, zod schemas, types
   docs/
     BUILD_PLAN.md            # Full data model, API surface, and phase-by-phase build plan
+  docker-compose.yml          # Whole stack (Postgres + API + frontend) — `docker compose up --build`
   .env.example
   README.md
 ```
@@ -86,9 +87,38 @@ features:
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - [Node.js 18+](https://nodejs.org/) (developed/tested on Node 22)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for PostgreSQL — or a local
-  PostgreSQL 14+ install if you prefer)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — required for the Docker
+  Compose quick start below, or just for running PostgreSQL if you set up the backend/frontend
+  directly (a local PostgreSQL 14+ install works too in that case)
 - Git
+
+## Quick Start — Docker Compose
+
+The fastest way to run the whole stack (Postgres + API + frontend) — no local .NET/Node/Postgres
+setup required, just Docker:
+
+```bash
+docker compose up --build
+```
+
+Then open **http://localhost:3000** and log in with any [demo credential](#demo-credentials) set.
+The API is at **http://localhost:5080** (Swagger at `/swagger`), Postgres at `localhost:5432`.
+Schema + seed data are created automatically on first startup, same as running the API directly —
+no manual migration step.
+
+Defaults (all overridable via a root `.env` file or shell env vars — see `docker-compose.yml` for
+the full list): `DB_PORT=5432`, `API_PORT=5080`, `FRONTEND_PORT=3000`,
+`POSTGRES_PASSWORD=devpassword`, `JWT_SECRET=<a placeholder — override for anything beyond local
+demo use>`. Because `NEXT_PUBLIC_API_URL` is compiled into the frontend's client bundle at *build*
+time (not read at container start), changing `API_PORT` requires `docker compose up --build`
+again, not just a restart.
+
+This path is self-contained and independent of the manual `docker run assignment-db` step below —
+don't run both against the same host ports at once. To stop and remove everything (including the
+Postgres data volume): `docker compose down -v`.
+
+If you'd rather run each piece directly (e.g. for backend/frontend hot-reload during development),
+follow "Setup — Backend" and "Setup — Frontend" below instead.
 
 ## Setup — Backend
 

@@ -1,0 +1,67 @@
+# Runs the whole stack (Postgres + API + frontend) with one command:
+#   docker compose up --build
+# Then open http://localhost:3000 and log in with any of the seeded demo accounts
+# (see README.md). Ports/secrets below can be overridden via a root .env file or
+# shell env vars — see README.md "Docker Compose" for the full variable list.
+#
+# This is a standalone path: it does NOT reuse the manually-run `assignment-db`
+# dev container from the README's non-Docker setup steps. Don't run both against
+# the same host ports at once.
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-assignment_system}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-assignment_system}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: AssignmentSystem.Api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Development (not Production) so Swagger UI stays available at /swagger,
+      # matching how the API is run outside Docker throughout this project.
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=${POSTGRES_DB:-assignment_system};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-devpassword}
+      Jwt__Secret: ${JWT_SECRET:-docker-compose-local-only-secret-change-me-32chars}
+      Jwt__Issuer: AssignmentSystemApi
+      Jwt__Audience: AssignmentSystemClient
+      Jwt__ExpiryMinutes: "60"
+      Cors__AllowedOrigins__0: http://localhost:${FRONTEND_PORT:-3000}
+    ports:
+      - "${API_PORT:-5080}:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Baked into the client bundle at build time (Next.js NEXT_PUBLIC_* rule),
+        # so it must point at the browser-reachable host:port, not the "api"
+        # service DNS name used internally by the api/db containers above.
+        NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-5080}/api
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+volumes:
+  db-data:
