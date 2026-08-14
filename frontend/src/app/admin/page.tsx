@@ -247,7 +247,7 @@ export default function AdminUsersPage() {
         classId: user.classId,
         isActive: true,
       });
-      showToast(`${user.fullName} reactivated.`);
+      showToast(user.pendingApproval ? `${user.fullName} approved.` : `${user.fullName} reactivated.`);
       await load();
     } catch (e) {
       setActionError(getApiErrorMessage(e, "Could not reactivate this user."));
@@ -409,8 +409,8 @@ export default function AdminUsersPage() {
                         {u.className ?? "—"}
                       </td>
                       <td className="px-3 py-2">
-                        <Badge tone={u.isActive ? "green" : "neutral"}>
-                          {u.isActive ? "Active" : "Inactive"}
+                        <Badge tone={u.isActive ? "green" : u.pendingApproval ? "amber" : "neutral"}>
+                          {u.isActive ? "Active" : u.pendingApproval ? "Pending Approval" : "Inactive"}
                         </Badge>
                       </td>
                       <td className="px-3 py-2">
@@ -440,7 +440,7 @@ export default function AdminUsersPage() {
                               isLoading={busyId === u.id}
                               loadingText="Working…"
                             >
-                              Activate
+                              {u.pendingApproval ? "Approve" : "Activate"}
                             </Button>
                           )}
                         </div>

@@ -43,3 +43,15 @@ internal static class SubmissionResponseMapper
         s.FileSizeBytes
     );
 }
+
+internal static class NotificationResponseMapper
+{
+    public static NotificationResponse Map(Notification n) => new(
+        n.Id,
+        n.Type,
+        n.Message,
+        n.ActionUrl,
+        n.IsRead,
+        n.CreatedAt
+    );
+}

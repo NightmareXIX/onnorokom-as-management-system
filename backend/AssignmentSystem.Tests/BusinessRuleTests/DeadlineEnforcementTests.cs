@@ -1,4 +1,5 @@
 using AssignmentSystem.Api.Controllers;
+using AssignmentSystem.Api.Services;
 using AssignmentSystem.Api.DTOs;
 using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
@@ -24,7 +25,7 @@ public class DeadlineEnforcementTests
         db.AddRange(cls, subject, teacher, student, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Create(assignment.Id, new CreateSubmissionRequest("late answer", null));
@@ -47,7 +48,7 @@ public class DeadlineEnforcementTests
         db.AddRange(cls, subject, teacher, student, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Create(assignment.Id, new CreateSubmissionRequest("on-time answer", null));

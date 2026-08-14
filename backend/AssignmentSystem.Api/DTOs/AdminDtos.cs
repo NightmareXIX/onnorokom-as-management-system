@@ -27,6 +27,7 @@ public record UserResponse(
     Guid? ClassId,
     string? ClassName,
     bool IsActive,
+    bool PendingApproval,
     DateTime CreatedAt
 );
 

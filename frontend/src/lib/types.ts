@@ -21,6 +21,19 @@ export interface LoginResponse {
   fullName: string;
 }
 
+export interface RegisterRequest {
+  fullName: string;
+  email: string;
+  password: string;
+  classId: string;
+}
+
+export interface RegisterResponse {
+  id: string;
+  email: string;
+  message: string;
+}
+
 export interface UserProfile {
   id: string;
   fullName: string;
@@ -85,6 +98,7 @@ export interface AdminUser {
   classId: string | null;
   className: string | null;
   isActive: boolean;
+  pendingApproval: boolean;
   createdAt: string;
 }
 
@@ -96,6 +110,23 @@ export interface TeacherAssignmentRecord {
   subjectName: string;
   classId: string;
   className: string;
+}
+
+export enum NotificationType {
+  SubmissionGraded = 0,
+  SubmissionReturnedForRevision = 1,
+  AssignmentPublished = 2,
+  NewSubmissionReceived = 3,
+  RegistrationPendingApproval = 4,
+}
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  message: string;
+  actionUrl: string | null;
+  isRead: boolean;
+  createdAt: string;
 }
 
 export interface PagedResult<T> {

@@ -13,5 +13,10 @@ public class User
     public Class? Class { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    // True only for a self-registered account that hasn't been approved by an Admin yet.
+    // Cleared automatically the moment an Admin sets IsActive back to true.
+    public bool PendingApproval { get; set; } = false;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

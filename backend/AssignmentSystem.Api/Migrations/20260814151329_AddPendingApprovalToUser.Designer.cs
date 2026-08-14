@@ -3,6 +3,7 @@ using System;
 using AssignmentSystem.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AssignmentSystem.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814151329_AddPendingApprovalToUser")]
+    partial class AddPendingApprovalToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -90,48 +93,6 @@ namespace AssignmentSystem.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Classes");
-                });
-
-            modelBuilder.Entity("AssignmentSystem.Api.Models.Notification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ActionUrl")
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("AssignmentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("SubmissionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssignmentId");
-
-                    b.HasIndex("RecipientUserId");
-
-                    b.HasIndex("SubmissionId");
-
-                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("AssignmentSystem.Api.Models.Subject", b =>
@@ -306,31 +267,6 @@ namespace AssignmentSystem.Api.Migrations
                     b.Navigation("Subject");
 
                     b.Navigation("Teacher");
-                });
-
-            modelBuilder.Entity("AssignmentSystem.Api.Models.Notification", b =>
-                {
-                    b.HasOne("AssignmentSystem.Api.Models.Assignment", "Assignment")
-                        .WithMany()
-                        .HasForeignKey("AssignmentId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("AssignmentSystem.Api.Models.User", "RecipientUser")
-                        .WithMany()
-                        .HasForeignKey("RecipientUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("AssignmentSystem.Api.Models.Submission", "Submission")
-                        .WithMany()
-                        .HasForeignKey("SubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("Assignment");
-
-                    b.Navigation("RecipientUser");
-
-                    b.Navigation("Submission");
                 });
 
             modelBuilder.Entity("AssignmentSystem.Api.Models.Submission", b =>

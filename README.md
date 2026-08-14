@@ -68,7 +68,10 @@ features:
 - **Submission answers are plain text**, optionally supplemented by a single attached file (PDF,
   Office docs, images, zip, or txt — up to 10 MB by default, both configurable via
   `Uploads:MaxSizeBytes`/`Uploads:AllowedExtensions`). The text answer itself remains required.
-- **No public self-registration** — only Admin creates Teacher/Student/Admin accounts.
+- **Self-registration is Student-only and pending-approval-gated.** Anyone can create a Student
+  account from the public `/register` page, but the account is created inactive — an Admin must
+  approve it (via the same Activate control already used for reactivating deactivated accounts)
+  before it can sign in. Teacher and Admin accounts remain Admin-provisioned only.
 - **Late submissions are blocked entirely** — `POST /submissions` returns 400 once
   `Assignment.Deadline` passes.
 - **Resubmission is opt-in per assignment** via `Assignment.AllowResubmission`, and is still

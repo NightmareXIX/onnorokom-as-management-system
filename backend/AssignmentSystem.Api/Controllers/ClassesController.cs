@@ -1,5 +1,6 @@
 using AssignmentSystem.Api.Data;
 using AssignmentSystem.Api.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +17,9 @@ public class ClassesController : ControllerBase
         _context = context;
     }
 
-    /// <summary>Lists all classes. Open to any authenticated role (used for form dropdowns).</summary>
+    /// <summary>Lists all classes. Open to any authenticated role (used for form dropdowns), and
+    /// anonymously as well since the public Student registration form needs it before login.</summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<List<ClassResponse>>> GetAll()
     {

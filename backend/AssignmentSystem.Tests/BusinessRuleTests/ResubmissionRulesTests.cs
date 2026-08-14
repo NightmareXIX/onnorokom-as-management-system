@@ -1,4 +1,5 @@
 using AssignmentSystem.Api.Controllers;
+using AssignmentSystem.Api.Services;
 using AssignmentSystem.Api.DTOs;
 using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
@@ -24,7 +25,7 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("edited answer", null));
@@ -48,7 +49,7 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("too late edit", null));
@@ -72,7 +73,7 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, owner, otherStudent, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(otherStudent.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("not mine to edit", null));
@@ -100,7 +101,7 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("revised answer", null));

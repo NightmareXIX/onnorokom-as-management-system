@@ -21,3 +21,12 @@ public record UserProfileResponse(
     UserRole Role,
     Guid? ClassId
 );
+
+public record RegisterRequest(
+    [Required] string FullName,
+    [Required, EmailAddress] string Email,
+    [Required, MinLength(6)] string Password,
+    [Required] Guid ClassId
+);
+
+public record RegisterResponse(Guid Id, string Email, string Message);

@@ -31,6 +31,18 @@ export const loginSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 
+export const registerSchema = z.object({
+  fullName: requiredText("Full name", 120),
+  email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .max(100, "Password must be 100 characters or fewer"),
+  classId: z.string().min(1, "Select a class"),
+});
+
+export type RegisterFormValues = z.infer<typeof registerSchema>;
+
 // --- Assignments ----------------------------------------------------------
 
 const MAX_MARKS_LIMIT = 1000;

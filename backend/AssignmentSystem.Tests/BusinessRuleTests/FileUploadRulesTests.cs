@@ -1,4 +1,5 @@
 using AssignmentSystem.Api.Controllers;
+using AssignmentSystem.Api.Services;
 using AssignmentSystem.Api.DTOs;
 using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
@@ -23,7 +24,7 @@ public class FileUploadRulesTests
         db.AddRange(cls, subject, teacher, student, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var oversizedFile = TestFormFile.Create(sizeBytes: 20 * 1024 * 1024);
@@ -46,7 +47,7 @@ public class FileUploadRulesTests
         db.AddRange(cls, subject, teacher, student, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var exeFile = TestFormFile.Create(fileName: "virus.exe", contentType: "application/octet-stream");
@@ -70,7 +71,7 @@ public class FileUploadRulesTests
         await db.SaveChangesAsync();
 
         var storage = new FakeFileStorageService();
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var file = TestFormFile.Create(fileName: "homework.pdf", contentType: "application/pdf", sizeBytes: 2048);
@@ -101,7 +102,7 @@ public class FileUploadRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var newFile = TestFormFile.Create(fileName: "new.pdf");
@@ -132,7 +133,7 @@ public class FileUploadRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("revised text only", null));

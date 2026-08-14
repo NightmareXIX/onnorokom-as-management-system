@@ -16,12 +16,15 @@ public class AssignmentsController : ControllerBase
     private readonly AppDbContext _context;
     private readonly ILogger<AssignmentsController> _logger;
     private readonly IFileStorageService _fileStorage;
+    private readonly NotificationService _notifications;
 
-    public AssignmentsController(AppDbContext context, ILogger<AssignmentsController> logger, IFileStorageService fileStorage)
+    public AssignmentsController(
+        AppDbContext context, ILogger<AssignmentsController> logger, IFileStorageService fileStorage, NotificationService notifications)
     {
         _context = context;
         _logger = logger;
         _fileStorage = fileStorage;
+        _notifications = notifications;
     }
 
     /// <summary>Creates an assignment (Teacher only). The caller becomes the owning teacher.</summary>
@@ -253,6 +256,8 @@ public class AssignmentsController : ControllerBase
 
         assignment.Status = AssignmentStatus.Published;
         assignment.UpdatedAt = DateTime.UtcNow;
+
+        await _notifications.NotifyAssignmentPublishedAsync(assignment.ClassId, assignment.Id, assignment.Title);
         await _context.SaveChangesAsync();
 
         return Ok(await LoadResponseAsync(assignment.Id));

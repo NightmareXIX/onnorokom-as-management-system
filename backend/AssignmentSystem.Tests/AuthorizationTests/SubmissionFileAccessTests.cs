@@ -1,4 +1,5 @@
 using AssignmentSystem.Api.Controllers;
+using AssignmentSystem.Api.Services;
 using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
 using FluentAssertions;
@@ -36,7 +37,7 @@ public class SubmissionFileAccessTests
         var (db, _, _, _, student, _, submission, storage) = await SeedWithFileAsync();
         await using var _ = db;
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.DownloadFile(submission.Id);
@@ -50,7 +51,7 @@ public class SubmissionFileAccessTests
         var (db, _, _, teacher, _, _, submission, storage) = await SeedWithFileAsync();
         await using var _ = db;
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.DownloadFile(submission.Id);
@@ -67,7 +68,7 @@ public class SubmissionFileAccessTests
         db.Add(admin);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.DownloadFile(submission.Id);
@@ -84,7 +85,7 @@ public class SubmissionFileAccessTests
         db.Add(otherStudent);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(otherStudent.Id, UserRole.Student);
 
         var result = await controller.DownloadFile(submission.Id);
@@ -102,7 +103,7 @@ public class SubmissionFileAccessTests
         db.Add(otherTeacher);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, storage, TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var result = await controller.DownloadFile(submission.Id);
@@ -125,7 +126,7 @@ public class SubmissionFileAccessTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.DownloadFile(submission.Id);

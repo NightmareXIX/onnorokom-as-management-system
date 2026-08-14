@@ -19,3 +19,12 @@ public enum SubmissionStatus
     Graded,
     ReturnedForRevision
 }
+
+public enum NotificationType
+{
+    SubmissionGraded,
+    SubmissionReturnedForRevision,
+    AssignmentPublished,
+    NewSubmissionReceived,
+    RegistrationPendingApproval
+}

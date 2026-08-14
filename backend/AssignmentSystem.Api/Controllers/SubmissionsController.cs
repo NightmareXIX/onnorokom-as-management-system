@@ -18,17 +18,20 @@ public class SubmissionsController : ControllerBase
     private readonly ILogger<SubmissionsController> _logger;
     private readonly IFileStorageService _fileStorage;
     private readonly IConfiguration _configuration;
+    private readonly NotificationService _notifications;
 
     public SubmissionsController(
         AppDbContext context,
         ILogger<SubmissionsController> logger,
         IFileStorageService fileStorage,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        NotificationService notifications)
     {
         _context = context;
         _logger = logger;
         _fileStorage = fileStorage;
         _configuration = configuration;
+        _notifications = notifications;
     }
 
     /// <summary>Submits an answer to an assignment (Student only), with an optional file attachment. Blocked after the deadline or if already submitted.</summary>
@@ -90,6 +93,7 @@ public class SubmissionsController : ControllerBase
         }
 
         _context.Submissions.Add(submission);
+        _notifications.NotifyNewSubmission(assignment.TeacherId, submission.Id, assignmentId, assignment.Title, student.FullName);
         await _context.SaveChangesAsync();
 
         var response = await LoadResponseAsync(submission.Id);
@@ -152,6 +156,9 @@ public class SubmissionsController : ControllerBase
             await SaveFileAsync(submission, request.File!);
         }
 
+        _notifications.NotifyNewSubmission(
+            submission.Assignment.TeacherId, submission.Id, submission.AssignmentId,
+            submission.Assignment.Title, submission.Student!.FullName);
         await _context.SaveChangesAsync();
 
         return Ok(SubmissionResponseMapper.Map(submission));
@@ -273,6 +280,9 @@ public class SubmissionsController : ControllerBase
         submission.GradedAt = DateTime.UtcNow;
         submission.GradedByTeacherId = teacherId;
 
+        _notifications.NotifySubmissionGraded(
+            submission.StudentId, submission.Id, submission.Assignment.Title,
+            request.Marks, submission.Assignment.MaxMarks);
         await _context.SaveChangesAsync();
 
         return Ok(SubmissionResponseMapper.Map(submission));
@@ -301,6 +311,13 @@ public class SubmissionsController : ControllerBase
         }
 
         submission.Status = request.Status;
+
+        if (request.Status == SubmissionStatus.ReturnedForRevision)
+        {
+            _notifications.NotifySubmissionReturnedForRevision(
+                submission.StudentId, submission.Id, submission.AssignmentId, submission.Assignment.Title);
+        }
+
         await _context.SaveChangesAsync();
 
         return Ok(SubmissionResponseMapper.Map(submission));

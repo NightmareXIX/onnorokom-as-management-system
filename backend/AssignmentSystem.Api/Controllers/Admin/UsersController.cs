@@ -60,6 +60,7 @@ public class UsersController : ControllerBase
             Role = request.Role,
             ClassId = request.Role == UserRole.Student ? request.ClassId : null,
             IsActive = true,
+            PendingApproval = false,
             CreatedAt = DateTime.UtcNow
         };
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
@@ -101,6 +102,11 @@ public class UsersController : ControllerBase
         user.Role = request.Role;
         user.ClassId = request.Role == UserRole.Student ? request.ClassId : null;
         user.IsActive = request.IsActive;
+        if (request.IsActive)
+        {
+            // Activating a self-registered account is how an Admin approves it.
+            user.PendingApproval = false;
+        }
 
         await _context.SaveChangesAsync();
 
@@ -138,6 +144,7 @@ public class UsersController : ControllerBase
         u.ClassId,
         u.Class?.Name,
         u.IsActive,
+        u.PendingApproval,
         u.CreatedAt
     );
 }

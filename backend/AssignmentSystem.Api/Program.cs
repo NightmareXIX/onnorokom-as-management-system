@@ -86,6 +86,7 @@ try
 
     builder.Services.AddSingleton<TokenService>();
     builder.Services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+    builder.Services.AddScoped<NotificationService>();
     builder.Services.Configure<FormOptions>(options =>
     {
         // Real enforcement is the explicit size check in SubmissionsController (returns a

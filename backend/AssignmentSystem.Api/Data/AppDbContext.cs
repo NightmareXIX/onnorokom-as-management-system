@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<Submission> Submissions => Set<Submission>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +89,29 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(s => s.GradedByTeacherId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            // Restrict, matching every other User FK: users are never hard-deleted anyway.
+            entity.HasOne(n => n.RecipientUser)
+                .WithMany()
+                .HasForeignKey(n => n.RecipientUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Cascade: a notification about a deleted assignment/submission is meaningless.
+            // AssignmentId and SubmissionId are never both set on the same row (see the
+            // Notification model), so this never creates a second delete path alongside the
+            // existing Assignment -> Submission cascade above.
+            entity.HasOne(n => n.Assignment)
+                .WithMany()
+                .HasForeignKey(n => n.AssignmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(n => n.Submission)
+                .WithMany()
+                .HasForeignKey(n => n.SubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -1,4 +1,5 @@
 using AssignmentSystem.Api.Controllers;
+using AssignmentSystem.Api.Services;
 using AssignmentSystem.Api.DTOs;
 using AssignmentSystem.Api.Models;
 using AssignmentSystem.Tests.TestHelpers;
@@ -24,7 +25,7 @@ public class AssignmentVisibilityTests
         db.AddRange(cls, subject, teacher, student, published, draft);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService(), new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.GetAll();
@@ -49,7 +50,7 @@ public class AssignmentVisibilityTests
         db.AddRange(classA, classB, subject, teacher, studentInA, assignmentForA, assignmentForB);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService(), new NotificationService(db));
         controller.SetUser(studentInA.Id, UserRole.Student);
 
         var result = await controller.GetAll();
@@ -74,7 +75,7 @@ public class AssignmentVisibilityTests
         db.AddRange(cls, subject, teacher, otherTeacher, ownPublished, ownDraft, someoneElses);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService(), new NotificationService(db));
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.GetAll();

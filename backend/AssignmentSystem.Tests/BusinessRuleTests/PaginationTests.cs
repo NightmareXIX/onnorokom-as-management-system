@@ -1,4 +1,5 @@
 using AssignmentSystem.Api.Controllers;
+using AssignmentSystem.Api.Services;
 using AssignmentSystem.Api.Controllers.Admin;
 using AssignmentSystem.Api.DTOs;
 using AssignmentSystem.Api.Models;
@@ -39,7 +40,7 @@ public class PaginationTests
         var (db, _, _, _, admin, assignments) = await SeedAssignmentsAsync(25);
         await using var _db = db;
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService(), new NotificationService(db));
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(page: 2, pageSize: 10);
@@ -61,7 +62,7 @@ public class PaginationTests
         var (db, _, _, _, admin, _) = await SeedAssignmentsAsync(25);
         await using var _db = db;
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService(), new NotificationService(db));
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(page: 3, pageSize: 10);
@@ -78,7 +79,7 @@ public class PaginationTests
         var (db, _, _, _, admin, _) = await SeedAssignmentsAsync(25);
         await using var _db = db;
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService(), new NotificationService(db));
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(page: 99, pageSize: 10);
@@ -95,7 +96,7 @@ public class PaginationTests
         var (db, _, _, _, admin, _) = await SeedAssignmentsAsync(5);
         await using var _db = db;
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService(), new NotificationService(db));
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(page: 1, pageSize: 500);
@@ -110,7 +111,7 @@ public class PaginationTests
         var (db, _, _, _, admin, _) = await SeedAssignmentsAsync(1);
         await using var _db = db;
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService(), new NotificationService(db));
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll();
@@ -146,7 +147,7 @@ public class PaginationTests
         var (db, student, submissions) = await SeedSubmissionsAsync(25);
         await using var _db = db;
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.GetMine(page: 2, pageSize: 10);
@@ -165,7 +166,7 @@ public class PaginationTests
         var (db, student, _) = await SeedSubmissionsAsync(25);
         await using var _db = db;
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.GetMine(page: 3, pageSize: 10);
@@ -181,7 +182,7 @@ public class PaginationTests
         var (db, student, _) = await SeedSubmissionsAsync(25);
         await using var _db = db;
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.GetMine(page: 99, pageSize: 10);
@@ -208,7 +209,7 @@ public class PaginationTests
         db.AddRange(submissions);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads, new NotificationService(db));
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.GetForAssignment(assignment.Id, page: 2, pageSize: 10);
