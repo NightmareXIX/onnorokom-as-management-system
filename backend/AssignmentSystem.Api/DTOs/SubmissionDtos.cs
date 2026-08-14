@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using AssignmentSystem.Api.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace AssignmentSystem.Api.DTOs;
 
-public record CreateSubmissionRequest([Required] string Content);
+public record CreateSubmissionRequest([Required] string Content, IFormFile? File);
 
-public record UpdateSubmissionRequest([Required] string Content);
+public record UpdateSubmissionRequest([Required] string Content, IFormFile? File);
 
 public record GradeSubmissionRequest(int Marks, string? Feedback);
 
@@ -24,5 +25,7 @@ public record SubmissionResponse(
     DateTime SubmittedAt,
     DateTime? UpdatedAt,
     DateTime? GradedAt,
-    Guid? GradedByTeacherId
+    Guid? GradedByTeacherId,
+    string? FileName,
+    long? FileSizeBytes
 );

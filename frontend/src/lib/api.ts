@@ -74,6 +74,24 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * Downloads a submission's attached file. A plain `<a href>` can't carry the Bearer
+ * auth header this app relies on (no cookie auth), so this fetches the file as a
+ * blob through the authenticated axios instance and triggers the save via a
+ * throwaway object URL.
+ */
+export async function downloadSubmissionFile(submissionId: string, fileName: string): Promise<void> {
+  const response = await api.get(`/submissions/${submissionId}/file`, { responseType: "blob" });
+  const url = URL.createObjectURL(response.data as Blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function validationMessages(problem: ProblemDetails): string | null {
   if (!problem.errors || typeof problem.errors !== "object") {
     return null;

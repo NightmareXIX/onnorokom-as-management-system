@@ -14,4 +14,6 @@ public static class ClaimsPrincipalExtensions
 
         return id;
     }
+
+    public static string? GetRole(this ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.Role);
 }

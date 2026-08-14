@@ -38,6 +38,8 @@ internal static class SubmissionResponseMapper
         s.SubmittedAt,
         s.UpdatedAt,
         s.GradedAt,
-        s.GradedByTeacherId
+        s.GradedByTeacherId,
+        s.FileName,
+        s.FileSizeBytes
     );
 }

@@ -26,7 +26,7 @@ public class AssignmentFilterTests
         db.AddRange(cls, subject, teacher, admin, published, draft);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(status: AssignmentStatus.Draft);
@@ -49,7 +49,7 @@ public class AssignmentFilterTests
         db.AddRange(classA, classB, subject, teacher, admin, inA, inB);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(classId: classA.Id);
@@ -72,7 +72,7 @@ public class AssignmentFilterTests
         db.AddRange(cls, subjectA, subjectB, teacher, admin, forA, forB);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(subjectId: subjectB.Id);
@@ -94,7 +94,7 @@ public class AssignmentFilterTests
         db.AddRange(cls, subject, teacher, admin, algebra, essay);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(search: "algebra");
@@ -116,7 +116,7 @@ public class AssignmentFilterTests
         db.AddRange(cls, subject, teacher, admin, matchesBoth, wrongStatus);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(admin.Id, UserRole.Admin);
 
         var result = await controller.GetAll(status: AssignmentStatus.Published, classId: cls.Id);
@@ -139,7 +139,7 @@ public class AssignmentFilterTests
         db.AddRange(classA, classB, subject, teacher, studentInA, draftInA, publishedInB);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(studentInA.Id, UserRole.Student);
 
         // Attempt to see the Draft assignment in the student's own class, and the Published
@@ -167,7 +167,7 @@ public class AssignmentFilterTests
         db.AddRange(cls, subject, teacher, otherTeacher, own, someoneElses);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.GetAll(status: AssignmentStatus.Published, classId: cls.Id);

@@ -24,10 +24,10 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(student.Id, UserRole.Student);
 
-        var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("edited answer"));
+        var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("edited answer", null));
 
         var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(400);
@@ -48,10 +48,10 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(student.Id, UserRole.Student);
 
-        var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("too late edit"));
+        var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("too late edit", null));
 
         var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(400);
@@ -72,10 +72,10 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, owner, otherStudent, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(otherStudent.Id, UserRole.Student);
 
-        var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("not mine to edit"));
+        var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("not mine to edit", null));
 
         var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(403);
@@ -100,10 +100,10 @@ public class ResubmissionRulesTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(student.Id, UserRole.Student);
 
-        var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("revised answer"));
+        var result = await controller.Update(submission.Id, new UpdateSubmissionRequest("revised answer", null));
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var updated = okResult.Value.Should().BeAssignableTo<SubmissionResponse>().Subject;

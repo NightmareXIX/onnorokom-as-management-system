@@ -6,6 +6,7 @@ using AssignmentSystem.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
@@ -84,6 +85,14 @@ try
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
     builder.Services.AddSingleton<TokenService>();
+    builder.Services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+    builder.Services.Configure<FormOptions>(options =>
+    {
+        // Real enforcement is the explicit size check in SubmissionsController (returns a
+        // clean ProblemDetails 400); this just needs to be above Uploads:MaxSizeBytes so
+        // legitimate uploads aren't cut off by Kestrel first.
+        options.MultipartBodyLengthLimit = 50 * 1024 * 1024;
+    });
 
     const string FrontendCorsPolicy = "FrontendCorsPolicy";
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()

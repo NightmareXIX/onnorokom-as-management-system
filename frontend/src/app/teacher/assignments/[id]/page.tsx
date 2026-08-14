@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AppHeader } from "@/components/AppHeader";
+import { SubmissionAttachment } from "@/components/SubmissionAttachment";
 import { useToast } from "@/components/ToastProvider";
 import { Alert } from "@/components/ui/Alert";
 import { AssignmentStatusBadge, Badge, SubmissionStatusBadge } from "@/components/ui/Badge";
@@ -301,6 +302,13 @@ function SubmissionCard({
       <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-800">
         {submission.content}
       </p>
+      {submission.fileName && (
+        <SubmissionAttachment
+          submissionId={submission.id}
+          fileName={submission.fileName}
+          fileSizeBytes={submission.fileSizeBytes}
+        />
+      )}
 
       <GradeForm submission={submission} maxMarks={maxMarks} onUpdated={onUpdated} />
 

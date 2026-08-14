@@ -28,7 +28,7 @@ public class SubmissionFilterTests
         db.AddRange(cls, subject, teacher, studentA, studentB, assignment, submitted, graded);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.GetForAssignment(assignment.Id, status: SubmissionStatus.Graded);
@@ -52,7 +52,7 @@ public class SubmissionFilterTests
         db.AddRange(cls, subject, teacher, alice, bob, assignment, aliceSubmission, bobSubmission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.GetForAssignment(assignment.Id, search: "alice");
@@ -75,7 +75,7 @@ public class SubmissionFilterTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var result = await controller.GetForAssignment(assignment.Id, page: 2, pageSize: 5, status: SubmissionStatus.Graded, search: "anything");
@@ -98,7 +98,7 @@ public class SubmissionFilterTests
         db.AddRange(cls, subject, teacher, student, assignmentA, assignmentB, submitted, graded);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.GetMine(status: SubmissionStatus.Graded);
@@ -122,7 +122,7 @@ public class SubmissionFilterTests
         db.AddRange(cls, subject, teacher, student, assignmentA, assignmentB, forA, forB);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.GetMine(assignmentId: assignmentB.Id);
@@ -146,7 +146,7 @@ public class SubmissionFilterTests
         db.AddRange(cls, subject, teacher, student, algebra, essay, algebraSub, essaySub);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(student.Id, UserRole.Student);
 
         var result = await controller.GetMine(search: "algebra");
@@ -170,7 +170,7 @@ public class SubmissionFilterTests
         db.AddRange(cls, subject, teacher, studentA, studentB, assignment, ownSubmission, otherSubmission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(studentA.Id, UserRole.Student);
 
         var result = await controller.GetMine(assignmentId: assignment.Id);

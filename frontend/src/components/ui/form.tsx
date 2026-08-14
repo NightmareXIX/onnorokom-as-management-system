@@ -16,7 +16,7 @@ import {
  * coloured red.
  */
 
-interface FieldProps {
+export interface FieldProps {
   label?: string;
   error?: string;
   hint?: string;
@@ -32,7 +32,7 @@ function controlClasses(hasError: boolean, extra = ""): string {
   return `${base} ${tone} ${extra}`;
 }
 
-function FieldShell({
+export function FieldShell({
   id,
   label,
   error,
@@ -69,7 +69,7 @@ function FieldShell({
   );
 }
 
-function describedBy(id: string, error?: string, hint?: string): string | undefined {
+export function describedBy(id: string, error?: string, hint?: string): string | undefined {
   if (error) return `${id}-error`;
   if (hint) return `${id}-hint`;
   return undefined;

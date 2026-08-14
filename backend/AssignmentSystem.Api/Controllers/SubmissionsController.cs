@@ -2,7 +2,9 @@ using AssignmentSystem.Api.Data;
 using AssignmentSystem.Api.DTOs;
 using AssignmentSystem.Api.Extensions;
 using AssignmentSystem.Api.Models;
+using AssignmentSystem.Api.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,17 +16,26 @@ public class SubmissionsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly ILogger<SubmissionsController> _logger;
+    private readonly IFileStorageService _fileStorage;
+    private readonly IConfiguration _configuration;
 
-    public SubmissionsController(AppDbContext context, ILogger<SubmissionsController> logger)
+    public SubmissionsController(
+        AppDbContext context,
+        ILogger<SubmissionsController> logger,
+        IFileStorageService fileStorage,
+        IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
+        _fileStorage = fileStorage;
+        _configuration = configuration;
     }
 
-    /// <summary>Submits an answer to an assignment (Student only). Blocked after the deadline or if already submitted.</summary>
+    /// <summary>Submits an answer to an assignment (Student only), with an optional file attachment. Blocked after the deadline or if already submitted.</summary>
     [HttpPost("assignments/{assignmentId:guid}/submissions")]
     [Authorize(Roles = "Student")]
-    public async Task<ActionResult<SubmissionResponse>> Create(Guid assignmentId, CreateSubmissionRequest request)
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<SubmissionResponse>> Create(Guid assignmentId, [FromForm] CreateSubmissionRequest request)
     {
         var studentId = User.GetUserId();
 
@@ -57,6 +68,12 @@ public class SubmissionsController : ControllerBase
             return Problem(statusCode: StatusCodes.Status400BadRequest, title: "You have already submitted this assignment. Use update to resubmit.");
         }
 
+        var fileError = ValidateFile(request.File);
+        if (fileError is not null)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: fileError);
+        }
+
         var submission = new Submission
         {
             Id = Guid.NewGuid(),
@@ -67,6 +84,11 @@ public class SubmissionsController : ControllerBase
             SubmittedAt = DateTime.UtcNow
         };
 
+        if (HasFile(request.File))
+        {
+            await SaveFileAsync(submission, request.File!);
+        }
+
         _context.Submissions.Add(submission);
         await _context.SaveChangesAsync();
 
@@ -74,10 +96,11 @@ public class SubmissionsController : ControllerBase
         return CreatedAtAction(nameof(GetForAssignment), new { assignmentId }, response);
     }
 
-    /// <summary>Updates (resubmits) an existing submission (Student, owner only). Blocked if resubmission isn't allowed or the deadline has passed.</summary>
+    /// <summary>Updates (resubmits) an existing submission (Student, owner only), optionally replacing the attached file. Blocked if resubmission isn't allowed or the deadline has passed.</summary>
     [HttpPut("submissions/{id:guid}")]
     [Authorize(Roles = "Student")]
-    public async Task<ActionResult<SubmissionResponse>> Update(Guid id, UpdateSubmissionRequest request)
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<SubmissionResponse>> Update(Guid id, [FromForm] UpdateSubmissionRequest request)
     {
         var studentId = User.GetUserId();
 
@@ -106,6 +129,12 @@ public class SubmissionsController : ControllerBase
             return Problem(statusCode: StatusCodes.Status400BadRequest, title: "The deadline for this assignment has passed.");
         }
 
+        var fileError = ValidateFile(request.File);
+        if (fileError is not null)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: fileError);
+        }
+
         submission.Content = request.Content;
         submission.UpdatedAt = DateTime.UtcNow;
         submission.Status = SubmissionStatus.Submitted;
@@ -114,9 +143,52 @@ public class SubmissionsController : ControllerBase
         submission.GradedAt = null;
         submission.GradedByTeacherId = null;
 
+        if (HasFile(request.File))
+        {
+            if (submission.StoredFileName is not null)
+            {
+                await _fileStorage.DeleteAsync(submission.StoredFileName);
+            }
+            await SaveFileAsync(submission, request.File!);
+        }
+
         await _context.SaveChangesAsync();
 
         return Ok(SubmissionResponseMapper.Map(submission));
+    }
+
+    /// <summary>Downloads a submission's attached file (Admin, the owning Student, or the owning Teacher).</summary>
+    [HttpGet("submissions/{id:guid}/file")]
+    public async Task<IActionResult> DownloadFile(Guid id)
+    {
+        var submission = await _context.Submissions
+            .Include(s => s.Assignment)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (submission is null || submission.StoredFileName is null)
+        {
+            return NotFound();
+        }
+
+        var role = User.GetRole();
+        var userId = User.GetUserId();
+        var isOwner = role == "Admin"
+            || (role == "Student" && submission.StudentId == userId)
+            || (role == "Teacher" && submission.Assignment!.TeacherId == userId);
+
+        if (!isOwner)
+        {
+            return Forbidden("You do not have access to this submission's file.");
+        }
+
+        var stream = await _fileStorage.OpenReadAsync(submission.StoredFileName);
+        if (stream is null)
+        {
+            return NotFound();
+        }
+
+        var contentType = submission.FileContentType ?? "application/octet-stream";
+        return File(stream, contentType, submission.FileName ?? submission.StoredFileName);
     }
 
     /// <summary>Lists all submissions for an assignment (Teacher, owner only). Supports paging and status/search (student name) filters.</summary>
@@ -274,6 +346,42 @@ public class SubmissionsController : ControllerBase
 
         return Ok(new PagedResult<SubmissionResponse>(
             submissions.Select(SubmissionResponseMapper.Map).ToList(), page, pageSize, totalCount));
+    }
+
+    private static bool HasFile(IFormFile? file) => file is not null && file.Length > 0;
+
+    private string? ValidateFile(IFormFile? file)
+    {
+        if (!HasFile(file))
+        {
+            return null;
+        }
+
+        var maxSizeBytes = long.TryParse(_configuration["Uploads:MaxSizeBytes"], out var configuredMax)
+            ? configuredMax
+            : 10 * 1024 * 1024;
+        if (file!.Length > maxSizeBytes)
+        {
+            return $"The attached file exceeds the maximum size of {maxSizeBytes / (1024 * 1024)} MB.";
+        }
+
+        var allowedExtensions = (_configuration["Uploads:AllowedExtensions"] ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var extension = Path.GetExtension(file.FileName);
+        if (string.IsNullOrEmpty(extension) || !allowedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        {
+            return $"That file type isn't allowed. Allowed types: {string.Join(", ", allowedExtensions)}.";
+        }
+
+        return null;
+    }
+
+    private async Task SaveFileAsync(Submission submission, IFormFile file)
+    {
+        submission.StoredFileName = await _fileStorage.SaveAsync(file);
+        submission.FileName = Path.GetFileName(file.FileName);
+        submission.FileContentType = file.ContentType;
+        submission.FileSizeBytes = file.Length;
     }
 
     private ObjectResult Forbidden(string title)

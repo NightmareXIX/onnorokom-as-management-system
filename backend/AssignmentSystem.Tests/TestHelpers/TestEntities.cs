@@ -80,13 +80,19 @@ public static class TestEntities
         Guid studentId,
         string content = "Test answer",
         SubmissionStatus status = SubmissionStatus.Submitted,
-        DateTime? submittedAt = null) => new()
+        DateTime? submittedAt = null,
+        string? fileName = null,
+        string? storedFileName = null,
+        long? fileSizeBytes = null) => new()
     {
         Id = Guid.NewGuid(),
         AssignmentId = assignmentId,
         StudentId = studentId,
         Content = content,
         Status = status,
-        SubmittedAt = submittedAt ?? DateTime.UtcNow
+        SubmittedAt = submittedAt ?? DateTime.UtcNow,
+        FileName = fileName,
+        StoredFileName = storedFileName,
+        FileSizeBytes = fileSizeBytes
     };
 }

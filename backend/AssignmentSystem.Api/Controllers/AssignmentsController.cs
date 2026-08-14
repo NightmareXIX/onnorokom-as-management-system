@@ -2,6 +2,7 @@ using AssignmentSystem.Api.Data;
 using AssignmentSystem.Api.DTOs;
 using AssignmentSystem.Api.Extensions;
 using AssignmentSystem.Api.Models;
+using AssignmentSystem.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +15,13 @@ public class AssignmentsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly ILogger<AssignmentsController> _logger;
+    private readonly IFileStorageService _fileStorage;
 
-    public AssignmentsController(AppDbContext context, ILogger<AssignmentsController> logger)
+    public AssignmentsController(AppDbContext context, ILogger<AssignmentsController> logger, IFileStorageService fileStorage)
     {
         _context = context;
         _logger = logger;
+        _fileStorage = fileStorage;
     }
 
     /// <summary>Creates an assignment (Teacher only). The caller becomes the owning teacher.</summary>
@@ -206,6 +209,17 @@ public class AssignmentsController : ControllerBase
         if (assignment.TeacherId != teacherId)
         {
             return Forbidden("You do not own this assignment.");
+        }
+
+        // EF's Cascade delete (Assignment -> Submission) removes the DB rows but never
+        // touches the filesystem, so attached files must be cleaned up explicitly first.
+        var storedFileNames = await _context.Submissions
+            .Where(s => s.AssignmentId == id && s.StoredFileName != null)
+            .Select(s => s.StoredFileName!)
+            .ToListAsync();
+        foreach (var storedFileName in storedFileNames)
+        {
+            await _fileStorage.DeleteAsync(storedFileName);
         }
 
         _context.Assignments.Remove(assignment);

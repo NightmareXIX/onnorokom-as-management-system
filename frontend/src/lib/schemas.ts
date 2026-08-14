@@ -83,6 +83,36 @@ export const submissionSchema = z.object({
 
 export type SubmissionFormValues = z.infer<typeof submissionSchema>;
 
+/** Mirrors the backend's Uploads:MaxSizeBytes/Uploads:AllowedExtensions defaults, for
+ * immediate client-side feedback — the server re-validates regardless. */
+export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+export const ALLOWED_UPLOAD_EXTENSIONS = [
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".txt",
+  ".zip",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+];
+
+export function validateSubmissionFile(file: File): string | null {
+  if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+    return `File must be ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB or smaller`;
+  }
+  const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+  if (!ALLOWED_UPLOAD_EXTENSIONS.includes(extension)) {
+    return `That file type isn't allowed. Allowed types: ${ALLOWED_UPLOAD_EXTENSIONS.join(", ")}`;
+  }
+  return null;
+}
+
 /** Marks bounds depend on the assignment, so the schema is built per assignment. */
 export const buildGradeSchema = (maxMarks: number) =>
   z.object({

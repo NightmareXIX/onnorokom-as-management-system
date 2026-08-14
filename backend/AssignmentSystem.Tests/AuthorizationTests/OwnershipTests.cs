@@ -25,7 +25,7 @@ public class OwnershipTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var result = await controller.Grade(submission.Id, new GradeSubmissionRequest(90, "not yours to grade"));
@@ -49,7 +49,7 @@ public class OwnershipTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var result = await controller.GetForAssignment(assignment.Id);
@@ -71,7 +71,7 @@ public class OwnershipTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var request = new UpdateAssignmentRequest(
@@ -95,7 +95,7 @@ public class OwnershipTests
         db.AddRange(cls, subject, owningTeacher, otherTeacher, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance);
+        var controller = new AssignmentsController(db, NullLogger<AssignmentsController>.Instance, new FakeFileStorageService());
         controller.SetUser(otherTeacher.Id, UserRole.Teacher);
 
         var result = await controller.Publish(assignment.Id);

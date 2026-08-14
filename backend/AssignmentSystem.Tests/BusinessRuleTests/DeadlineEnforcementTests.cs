@@ -24,10 +24,10 @@ public class DeadlineEnforcementTests
         db.AddRange(cls, subject, teacher, student, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(student.Id, UserRole.Student);
 
-        var result = await controller.Create(assignment.Id, new CreateSubmissionRequest("late answer"));
+        var result = await controller.Create(assignment.Id, new CreateSubmissionRequest("late answer", null));
 
         var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(400);
@@ -47,10 +47,10 @@ public class DeadlineEnforcementTests
         db.AddRange(cls, subject, teacher, student, assignment);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(student.Id, UserRole.Student);
 
-        var result = await controller.Create(assignment.Id, new CreateSubmissionRequest("on-time answer"));
+        var result = await controller.Create(assignment.Id, new CreateSubmissionRequest("on-time answer", null));
 
         result.Result.Should().BeOfType<CreatedAtActionResult>();
     }

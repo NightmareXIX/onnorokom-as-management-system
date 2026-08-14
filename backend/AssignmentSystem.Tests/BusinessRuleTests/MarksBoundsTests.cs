@@ -24,7 +24,7 @@ public class MarksBoundsTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.Grade(submission.Id, new GradeSubmissionRequest(150, "too high"));
@@ -47,7 +47,7 @@ public class MarksBoundsTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.Grade(submission.Id, new GradeSubmissionRequest(-5, "negative"));
@@ -70,7 +70,7 @@ public class MarksBoundsTests
         db.AddRange(cls, subject, teacher, student, assignment, submission);
         await db.SaveChangesAsync();
 
-        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance);
+        var controller = new SubmissionsController(db, NullLogger<SubmissionsController>.Instance, new FakeFileStorageService(), TestConfig.Uploads);
         controller.SetUser(teacher.Id, UserRole.Teacher);
 
         var result = await controller.Grade(submission.Id, new GradeSubmissionRequest(85, "good job"));

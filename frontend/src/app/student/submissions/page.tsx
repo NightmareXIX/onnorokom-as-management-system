@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
+import { SubmissionAttachment } from "@/components/SubmissionAttachment";
 import { SubmissionStatusBadge } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { Input, Select } from "@/components/ui/form";
@@ -126,6 +127,13 @@ export default function StudentSubmissionsPage() {
                 <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-800">
                   {s.content}
                 </p>
+                {s.fileName && (
+                  <SubmissionAttachment
+                    submissionId={s.id}
+                    fileName={s.fileName}
+                    fileSizeBytes={s.fileSizeBytes}
+                  />
+                )}
                 {s.marks !== null && (
                   <div className="mt-3 rounded-md bg-zinc-50 p-3 text-sm">
                     <p className="font-medium text-zinc-900">Marks: {s.marks}</p>

@@ -19,7 +19,7 @@ storage.
 | Backend | ASP.NET Core 8 (MVC controllers), EF Core + Npgsql, JWT bearer auth, `PasswordHasher<T>`, Serilog, Swashbuckle/Swagger |
 | Frontend | Next.js 16 (TypeScript, App Router, `src/` dir), Tailwind CSS, axios, react-hook-form + zod |
 | Database | PostgreSQL 16 (Docker) |
-| Tests | xUnit + FluentAssertions + EF Core InMemory, 29 tests in `AssignmentSystem.Tests` |
+| Tests | xUnit + FluentAssertions + EF Core InMemory, 70 tests in `AssignmentSystem.Tests` |
 
 ## Project Structure
 
@@ -65,8 +65,9 @@ features:
 - **Subjects are a catalog independent of Class.** A `TeacherAssignment` join table
   (Teacher + Subject + Class) says who teaches what to whom; an `Assignment` references one
   `ClassId` + `SubjectId` pair.
-- **Submission answers are plain text**, not file uploads (file upload is an optional Phase 11
-  add-on, not implemented).
+- **Submission answers are plain text**, optionally supplemented by a single attached file (PDF,
+  Office docs, images, zip, or txt — up to 10 MB by default, both configurable via
+  `Uploads:MaxSizeBytes`/`Uploads:AllowedExtensions`). The text answer itself remains required.
 - **No public self-registration** — only Admin creates Teacher/Student/Admin accounts.
 - **Late submissions are blocked entirely** — `POST /submissions` returns 400 once
   `Assignment.Deadline` passes.
@@ -79,7 +80,11 @@ features:
   tradeoff (see BUILD_PLAN.md Section 1 / Phase 8) — moving it to a cookie would require routing
   every API call through a Next.js route-handler proxy, which was judged too risky to retrofit
   this late against a working demo path.
-- **Submissions are text-only** — no file upload.
+- **Submission attachments are stored on local disk** (or a Docker named volume when run via
+  Compose), not object storage (S3-style) — fine for this project's scope, but wouldn't survive a
+  horizontally-scaled/multi-instance deployment without a shared volume or bucket.
+- **No virus/malware scanning of uploaded files** — validation is limited to file extension and
+  size checks (both server- and client-side).
 - **No pagination** on assignment/submission lists (fine at demo data volumes; listed as an
   optional Phase 11 improvement).
 
@@ -207,7 +212,7 @@ cd backend
 dotnet test
 ```
 
-29 tests across three folders, all running against an in-memory EF Core database (no Postgres
+70 tests across three folders, all running against an in-memory EF Core database (no Postgres
 needed to run them):
 
 - `BusinessRuleTests/` — deadline enforcement, resubmission rules, marks-bounds validation,
@@ -244,9 +249,11 @@ is running. Broad strokes:
 
 - `POST /api/auth/login`, `GET /api/auth/me`
 - `GET/POST/PUT/DELETE /api/assignments`, `PATCH /api/assignments/{id}/publish`
-- `POST /api/assignments/{id}/submissions`, `PUT /api/submissions/{id}`,
-  `GET /api/submissions/me`, `GET /api/assignments/{id}/submissions`,
-  `PUT /api/submissions/{id}/grade`, `PATCH /api/submissions/{id}/status`
+- `POST /api/assignments/{id}/submissions`, `PUT /api/submissions/{id}` (both `multipart/form-data`
+  — text `Content` plus an optional attached file), `GET /api/submissions/{id}/file` (download,
+  owner Student/Teacher or Admin only), `GET /api/submissions/me`,
+  `GET /api/assignments/{id}/submissions`, `PUT /api/submissions/{id}/grade`,
+  `PATCH /api/submissions/{id}/status`
 - `GET/POST/PUT/DELETE /api/admin/users`, `.../classes`, `.../subjects`,
   `GET/POST/DELETE /api/admin/teacher-assignments`, read-only
   `GET /api/admin/assignments` / `GET /api/admin/submissions`

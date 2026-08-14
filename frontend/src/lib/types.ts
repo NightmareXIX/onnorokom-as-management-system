@@ -73,6 +73,8 @@ export interface Submission {
   updatedAt: string | null;
   gradedAt: string | null;
   gradedByTeacherId: string | null;
+  fileName: string | null;
+  fileSizeBytes: number | null;
 }
 
 export interface AdminUser {

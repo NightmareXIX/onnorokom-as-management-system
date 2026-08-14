@@ -45,8 +45,12 @@ services:
       Jwt__Audience: AssignmentSystemClient
       Jwt__ExpiryMinutes: "60"
       Cors__AllowedOrigins__0: http://localhost:${FRONTEND_PORT:-3000}
+      Uploads__StoragePath: /app/uploads
+      Uploads__MaxSizeBytes: "10485760"
     ports:
       - "${API_PORT:-5080}:8080"
+    volumes:
+      - uploads-data:/app/uploads
 
   frontend:
     build:
@@ -65,3 +69,4 @@ services:
 
 volumes:
   db-data:
+  uploads-data:
