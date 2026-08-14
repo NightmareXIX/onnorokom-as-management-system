@@ -3,16 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useToast } from "@/components/ToastProvider";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Input } from "@/components/ui/form";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { api, getApiErrorMessage } from "@/lib/api";
+import { subjectSchema, type SubjectFormValues } from "@/lib/schemas";
 import type { SubjectOption } from "@/lib/types";
-
-const subjectSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  code: z.string().optional(),
-});
-
-type SubjectFormValues = z.infer<typeof subjectSchema>;
 
 function EditSubjectRow({
   subject,
@@ -42,7 +41,7 @@ function EditSubjectRow({
       });
       onSaved(response.data);
     } catch (e) {
-      setError(getApiErrorMessage(e));
+      setError(getApiErrorMessage(e, "Could not save this subject."));
     }
   };
 
@@ -50,42 +49,35 @@ function EditSubjectRow({
     <tr className="bg-zinc-50">
       <td colSpan={3} className="p-3">
         <form
-          className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-start"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
           onSubmit={handleSubmit(onSubmit)}
           noValidate
         >
-          <div>
-            <label className="block text-xs font-medium text-zinc-700">Name</label>
-            <input
-              className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-              {...register("name")}
-            />
-            {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700">Code</label>
-            <input
-              className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-              {...register("code")}
-            />
-          </div>
-          <div className="flex gap-2 sm:pt-6">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Saving…" : "Save"}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
-            >
+          <Input
+            label="Name"
+            disabled={isSubmitting}
+            error={errors.name?.message}
+            {...register("name")}
+          />
+          <Input
+            label="Code"
+            disabled={isSubmitting}
+            error={errors.code?.message}
+            {...register("code")}
+          />
+          {error && (
+            <Alert tone="error" className="sm:col-span-2">
+              {error}
+            </Alert>
+          )}
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <Button type="submit" size="sm" isLoading={isSubmitting} loadingText="Saving…">
+              Save
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onCancel} disabled={isSubmitting}>
               Cancel
-            </button>
+            </Button>
           </div>
-          {error && <p className="text-xs text-red-600 sm:col-span-3">{error}</p>}
         </form>
       </td>
     </tr>
@@ -93,12 +85,16 @@ function EditSubjectRow({
 }
 
 export default function AdminSubjectsPage() {
+  const { showToast } = useToast();
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<SubjectOption | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const {
     register,
@@ -116,40 +112,53 @@ export default function AdminSubjectsPage() {
       setSubjects(response.data);
       setListError(null);
     } catch (e) {
-      setListError(getApiErrorMessage(e));
+      setListError(getApiErrorMessage(e, "Could not load subjects."));
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // load is also reused after create/edit/delete to refresh the list; its setState
-    // calls only run after the awaited request settles.
+    // load is also reused by retry and after create/edit/delete; its setState calls
+    // only run after the awaited request settles.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    await load();
+    setIsRetrying(false);
+  };
 
   const onSubmit = async (values: SubjectFormValues) => {
     setFormError(null);
     try {
       await api.post("/admin/subjects", { name: values.name, code: values.code || null });
       reset();
+      showToast("Subject created.");
       await load();
     } catch (e) {
-      setFormError(getApiErrorMessage(e));
+      setFormError(getApiErrorMessage(e, "Could not create the subject."));
     }
   };
 
-  const handleDelete = async (subject: SubjectOption) => {
-    if (!window.confirm(`Delete subject "${subject.name}"? This cannot be undone.`)) {
+  const handleDelete = async () => {
+    if (!pendingDelete) {
       return;
     }
     setRowError(null);
+    setIsDeleting(true);
     try {
-      await api.delete(`/admin/subjects/${subject.id}`);
+      await api.delete(`/admin/subjects/${pendingDelete.id}`);
+      showToast(`Deleted "${pendingDelete.name}".`);
+      setPendingDelete(null);
       await load();
     } catch (e) {
-      setRowError(getApiErrorMessage(e));
+      setRowError(getApiErrorMessage(e, "Could not delete this subject."));
+      setPendingDelete(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -162,41 +171,51 @@ export default function AdminSubjectsPage() {
           onSubmit={handleSubmit(onSubmit)}
           noValidate
         >
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Name</label>
-            <input
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              {...register("name")}
-            />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Code</label>
-            <input
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              {...register("code")}
-            />
-          </div>
+          <Input
+            label="Name"
+            placeholder="Mathematics"
+            disabled={isSubmitting}
+            error={errors.name?.message}
+            {...register("name")}
+          />
+          <Input
+            label="Code"
+            placeholder="MATH"
+            hint="Optional."
+            disabled={isSubmitting}
+            error={errors.code?.message}
+            {...register("code")}
+          />
           {formError && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">{formError}</p>
+            <Alert tone="error" className="sm:col-span-2">
+              {formError}
+            </Alert>
           )}
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Creating…" : "Create Subject"}
-            </button>
+            <Button type="submit" isLoading={isSubmitting} loadingText="Creating…">
+              Create Subject
+            </Button>
           </div>
         </form>
       </section>
 
       <section>
         <h2 className="text-base font-semibold text-zinc-900">Subjects</h2>
-        {isLoading && <p className="mt-3 text-sm text-zinc-500">Loading subjects…</p>}
-        {listError && <p className="mt-3 text-sm text-red-600">{listError}</p>}
-        {rowError && <p className="mt-3 text-sm text-red-600">{rowError}</p>}
+        {isLoading && (
+          <div className="mt-3">
+            <LoadingState label="Loading subjects…" />
+          </div>
+        )}
+        {!isLoading && listError && (
+          <div className="mt-3">
+            <ErrorState message={listError} onRetry={handleRetry} isRetrying={isRetrying} />
+          </div>
+        )}
+        {rowError && (
+          <Alert tone="error" className="mt-3">
+            {rowError}
+          </Alert>
+        )}
         {!isLoading && !listError && (
           <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
             <table className="min-w-full divide-y divide-zinc-200 text-sm">
@@ -216,6 +235,7 @@ export default function AdminSubjectsPage() {
                       onSaved={(updated) => {
                         setSubjects((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
                         setEditingId(null);
+                        showToast("Subject updated.");
                       }}
                       onCancel={() => setEditingId(null)}
                     />
@@ -225,20 +245,12 @@ export default function AdminSubjectsPage() {
                       <td className="px-3 py-2 text-zinc-600">{s.code ?? "—"}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditingId(s.id)}
-                            className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                          >
+                          <Button variant="secondary" size="sm" onClick={() => setEditingId(s.id)}>
                             Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(s)}
-                            className="rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-                          >
+                          </Button>
+                          <Button variant="danger" size="sm" onClick={() => setPendingDelete(s)}>
                             Delete
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -256,6 +268,16 @@ export default function AdminSubjectsPage() {
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={`Delete "${pendingDelete?.name ?? ""}"?`}
+        description="A subject that is still used by an assignment or a teacher assignment cannot be deleted."
+        confirmLabel="Delete"
+        isBusy={isDeleting}
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

@@ -4,47 +4,41 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { AppHeader } from "@/components/AppHeader";
+import { useToast } from "@/components/ToastProvider";
+import { Alert } from "@/components/ui/Alert";
+import { AssignmentStatusBadge, Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Checkbox, Input, Select, Textarea } from "@/components/ui/form";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
 import { api, getApiErrorMessage } from "@/lib/api";
-import { assignmentStatusLabel, formatDateTime } from "@/lib/format";
-import { AssignmentStatus, type Assignment, type ClassOption, type SubjectOption } from "@/lib/types";
+import { deadlineDistance, formatDateTime, isPastDeadline } from "@/lib/format";
+import { createAssignmentSchema, type CreateAssignmentFormValues } from "@/lib/schemas";
+import {
+  AssignmentStatus,
+  type Assignment,
+  type ClassOption,
+  type SubjectOption,
+} from "@/lib/types";
 
-const assignmentSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
-  classId: z.string().min(1, "Select a class"),
-  subjectId: z.string().min(1, "Select a subject"),
-  deadline: z.string().min(1, "Deadline is required"),
-  maxMarks: z
-    .string()
-    .min(1, "Max marks is required")
-    .refine(
-      (v) => Number.isInteger(Number(v)) && Number(v) > 0,
-      "Must be a positive whole number"
-    ),
-  allowResubmission: z.boolean(),
-  status: z.enum(["Draft", "Published"]),
-});
-
-type AssignmentFormValues = z.infer<typeof assignmentSchema>;
-
-export default function TeacherDashboardPage() {
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [classes, setClasses] = useState<ClassOption[]>([]);
-  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
-  const [isLoadingList, setIsLoadingList] = useState(true);
-  const [listError, setListError] = useState<string | null>(null);
+function NewAssignmentForm({
+  classes,
+  subjects,
+  onCreated,
+  onCancel,
+}: {
+  classes: ClassOption[];
+  subjects: SubjectOption[];
+  onCreated: () => Promise<void> | void;
+  onCancel: () => void;
+}) {
   const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccess, setFormSuccess] = useState<string | null>(null);
-
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors, isSubmitting },
-  } = useForm<AssignmentFormValues>({
-    resolver: zodResolver(assignmentSchema),
+  } = useForm<CreateAssignmentFormValues>({
+    resolver: zodResolver(createAssignmentSchema),
     defaultValues: {
       title: "",
       description: "",
@@ -57,36 +51,8 @@ export default function TeacherDashboardPage() {
     },
   });
 
-  const loadAssignments = useCallback(async () => {
-    try {
-      const response = await api.get<Assignment[]>("/assignments");
-      setAssignments(response.data);
-      setListError(null);
-    } catch (error) {
-      setListError(getApiErrorMessage(error));
-    } finally {
-      setIsLoadingList(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // loadAssignments is also reused by the create-assignment submit handler to
-    // refresh the list; its setState calls only run after the awaited request settles.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadAssignments();
-    api
-      .get<ClassOption[]>("/classes")
-      .then((res) => setClasses(res.data))
-      .catch(() => {});
-    api
-      .get<SubjectOption[]>("/subjects")
-      .then((res) => setSubjects(res.data))
-      .catch(() => {});
-  }, [loadAssignments]);
-
-  const onSubmit = async (values: AssignmentFormValues) => {
+  const onSubmit = async (values: CreateAssignmentFormValues) => {
     setFormError(null);
-    setFormSuccess(null);
     try {
       await api.post("/assignments", {
         title: values.title,
@@ -96,183 +62,227 @@ export default function TeacherDashboardPage() {
         deadline: new Date(values.deadline).toISOString(),
         maxMarks: Number(values.maxMarks),
         allowResubmission: values.allowResubmission,
-        status: values.status === "Published" ? AssignmentStatus.Published : AssignmentStatus.Draft,
+        status:
+          values.status === "Published" ? AssignmentStatus.Published : AssignmentStatus.Draft,
       });
-      setFormSuccess("Assignment created.");
-      reset();
-      await loadAssignments();
+      await onCreated();
     } catch (error) {
-      setFormError(getApiErrorMessage(error));
+      setFormError(getApiErrorMessage(error, "Could not create the assignment."));
     }
+  };
+
+  return (
+    <form
+      className="mt-3 grid grid-cols-1 gap-4 rounded-lg border border-zinc-200 bg-white p-4 sm:grid-cols-2"
+      onSubmit={handleSubmit(onSubmit)}
+      noValidate
+    >
+      <Input
+        label="Title"
+        wrapperClassName="sm:col-span-2"
+        disabled={isSubmitting}
+        error={errors.title?.message}
+        {...register("title")}
+      />
+
+      <Textarea
+        label="Description"
+        rows={3}
+        wrapperClassName="sm:col-span-2"
+        disabled={isSubmitting}
+        error={errors.description?.message}
+        {...register("description")}
+      />
+
+      <Select
+        label="Class"
+        disabled={isSubmitting}
+        error={errors.classId?.message}
+        {...register("classId")}
+      >
+        <option value="">Select a class</option>
+        {classes.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </Select>
+
+      <Select
+        label="Subject"
+        disabled={isSubmitting}
+        error={errors.subjectId?.message}
+        {...register("subjectId")}
+      >
+        <option value="">Select a subject</option>
+        {subjects.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </Select>
+
+      <Input
+        label="Deadline"
+        type="datetime-local"
+        disabled={isSubmitting}
+        error={errors.deadline?.message}
+        {...register("deadline")}
+      />
+
+      <Input
+        label="Max Marks"
+        type="number"
+        min={1}
+        max={1000}
+        inputMode="numeric"
+        disabled={isSubmitting}
+        error={errors.maxMarks?.message}
+        {...register("maxMarks")}
+      />
+
+      <Select
+        label="Status"
+        disabled={isSubmitting}
+        error={errors.status?.message}
+        {...register("status")}
+      >
+        <option value="Published">Published (visible to students)</option>
+        <option value="Draft">Draft (hidden until published)</option>
+      </Select>
+
+      <Checkbox
+        label="Allow resubmission"
+        wrapperClassName="sm:pt-7"
+        disabled={isSubmitting}
+        error={errors.allowResubmission?.message}
+        {...register("allowResubmission")}
+      />
+
+      {formError && (
+        <Alert tone="error" className="sm:col-span-2">
+          {formError}
+        </Alert>
+      )}
+
+      <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row">
+        <Button type="submit" isLoading={isSubmitting} loadingText="Creating…">
+          Create Assignment
+        </Button>
+        <Button variant="secondary" onClick={onCancel} disabled={isSubmitting}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export default function TeacherDashboardPage() {
+  const { showToast } = useToast();
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [assignmentsRes, classesRes, subjectsRes] = await Promise.all([
+        api.get<Assignment[]>("/assignments"),
+        api.get<ClassOption[]>("/classes"),
+        api.get<SubjectOption[]>("/subjects"),
+      ]);
+      setAssignments(assignmentsRes.data);
+      setClasses(classesRes.data);
+      setSubjects(subjectsRes.data);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(getApiErrorMessage(error, "Could not load your assignments."));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // load is also reused by retry and after a create; its setState calls only run
+    // after the awaited requests settle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    await load();
+    setIsRetrying(false);
   };
 
   return (
     <div className="flex flex-1 flex-col">
       <AppHeader title="Teacher Dashboard" />
-      <main className="mx-auto w-full max-w-4xl flex-1 space-y-8 px-4 py-6 sm:px-6">
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 px-4 py-6 sm:px-6">
         <section>
-          <h2 className="text-base font-semibold text-zinc-900">New Assignment</h2>
-          <form
-            className="mt-3 grid grid-cols-1 gap-4 rounded-lg border border-zinc-200 bg-white p-4 sm:grid-cols-2"
-            onSubmit={handleSubmit(onSubmit)}
-            noValidate
-          >
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-zinc-700">Title</label>
-              <input
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                {...register("title")}
-              />
-              {errors.title && (
-                <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-              )}
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-zinc-700">Description</label>
-              <textarea
-                rows={3}
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                {...register("description")}
-              />
-              {errors.description && (
-                <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-              )}
-            </div>
-
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <label className="block text-sm font-medium text-zinc-700">Class</label>
-              <select
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                {...register("classId")}
-              >
-                <option value="">Select a class</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {errors.classId && (
-                <p className="mt-1 text-sm text-red-600">{errors.classId.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700">Subject</label>
-              <select
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                {...register("subjectId")}
-              >
-                <option value="">Select a subject</option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              {errors.subjectId && (
-                <p className="mt-1 text-sm text-red-600">{errors.subjectId.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700">Deadline</label>
-              <input
-                type="datetime-local"
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                {...register("deadline")}
-              />
-              {errors.deadline && (
-                <p className="mt-1 text-sm text-red-600">{errors.deadline.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700">Max Marks</label>
-              <input
-                type="number"
-                min={1}
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                {...register("maxMarks")}
-              />
-              {errors.maxMarks && (
-                <p className="mt-1 text-sm text-red-600">{errors.maxMarks.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700">Status</label>
-              <select
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                {...register("status")}
-              >
-                <option value="Published">Published (visible to students)</option>
-                <option value="Draft">Draft (hidden until published)</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                id="allowResubmission"
-                type="checkbox"
-                className="h-4 w-4 rounded border-zinc-300"
-                {...register("allowResubmission")}
-              />
-              <label htmlFor="allowResubmission" className="text-sm text-zinc-700">
-                Allow resubmission
-              </label>
-            </div>
-
-            {formError && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">
-                {formError}
+              <h2 className="text-base font-semibold text-zinc-900">Your Assignments</h2>
+              <p className="text-sm text-zinc-500">
+                Everything you have created, draft or published.
               </p>
-            )}
-            {formSuccess && (
-              <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 sm:col-span-2">
-                {formSuccess}
-              </p>
-            )}
-
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? "Creating…" : "Create Assignment"}
-              </button>
             </div>
-          </form>
-        </section>
-
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900">Your Assignments</h2>
-          <div className="mt-3 space-y-3">
-            {isLoadingList && <p className="text-sm text-zinc-500">Loading assignments…</p>}
-            {listError && <p className="text-sm text-red-600">{listError}</p>}
-            {!isLoadingList && !listError && assignments.length === 0 && (
-              <p className="text-sm text-zinc-500">No assignments yet — create one above.</p>
+            {!isFormOpen && (
+              <Button onClick={() => setIsFormOpen(true)} disabled={isLoading || !!loadError}>
+                New Assignment
+              </Button>
             )}
-            {assignments.map((a) => (
-              <Link
-                key={a.id}
-                href={`/teacher/assignments/${a.id}`}
-                className="block rounded-lg border border-zinc-200 bg-white p-4 hover:border-zinc-300 hover:shadow-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-medium text-zinc-900">{a.title}</h3>
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                    {assignmentStatusLabel(a.status)}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-zinc-500">
-                  {a.subjectName} · {a.className} · Due {formatDateTime(a.deadline)} · {a.maxMarks}{" "}
-                  marks
-                </p>
-              </Link>
-            ))}
+          </div>
+
+          {isFormOpen && (
+            <NewAssignmentForm
+              classes={classes}
+              subjects={subjects}
+              onCancel={() => setIsFormOpen(false)}
+              onCreated={async () => {
+                setIsFormOpen(false);
+                showToast("Assignment created.");
+                await load();
+              }}
+            />
+          )}
+
+          <div className="mt-4 space-y-3">
+            {isLoading && <LoadingState label="Loading assignments…" />}
+            {!isLoading && loadError && (
+              <ErrorState message={loadError} onRetry={handleRetry} isRetrying={isRetrying} />
+            )}
+            {!isLoading && !loadError && assignments.length === 0 && (
+              <EmptyState
+                title="No assignments yet"
+                description="Use the New Assignment button above to create your first one."
+              />
+            )}
+            {!loadError &&
+              assignments.map((a) => (
+                <Link
+                  key={a.id}
+                  href={`/teacher/assignments/${a.id}`}
+                  className="block rounded-lg border border-zinc-200 bg-white p-4 transition hover:border-zinc-300 hover:shadow-sm"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-medium text-zinc-900">{a.title}</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <AssignmentStatusBadge status={a.status} />
+                      {isPastDeadline(a.deadline) && <Badge tone="red">Closed</Badge>}
+                    </div>
+                  </div>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    {a.subjectName} · {a.className} · {a.maxMarks} marks
+                  </p>
+                  <p className="mt-0.5 text-sm text-zinc-500">
+                    Due {formatDateTime(a.deadline)} ({deadlineDistance(a.deadline)})
+                  </p>
+                </Link>
+              ))}
           </div>
         </section>
       </main>

@@ -1,20 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useToast } from "@/components/ToastProvider";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Checkbox, Input, Select } from "@/components/ui/form";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { api, getApiErrorMessage } from "@/lib/api";
 import { userRoleLabel } from "@/lib/format";
+import {
+  createUserSchema,
+  editUserSchema,
+  type CreateUserFormValues,
+  type EditUserFormValues,
+} from "@/lib/schemas";
 import { UserRole, type AdminUser, type ClassOption } from "@/lib/types";
 
-const roleOptions = [
-  { value: "Admin", label: "Admin" },
-  { value: "Teacher", label: "Teacher" },
-  { value: "Student", label: "Student" },
-] as const;
+const roleOptions = ["Admin", "Teacher", "Student"] as const;
+type RoleName = (typeof roleOptions)[number];
 
-function roleToEnum(role: string): UserRole {
+function roleToEnum(role: RoleName): UserRole {
   switch (role) {
     case "Admin":
       return UserRole.Admin;
@@ -25,7 +34,7 @@ function roleToEnum(role: string): UserRole {
   }
 }
 
-function roleToString(role: UserRole): "Admin" | "Teacher" | "Student" {
+function roleToString(role: UserRole): RoleName {
   switch (role) {
     case UserRole.Admin:
       return "Admin";
@@ -35,36 +44,6 @@ function roleToString(role: UserRole): "Admin" | "Teacher" | "Student" {
       return "Student";
   }
 }
-
-const createUserSchema = z
-  .object({
-    fullName: z.string().min(1, "Full name is required"),
-    email: z.string().min(1, "Email is required").email("Enter a valid email"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    role: z.enum(["Admin", "Teacher", "Student"]),
-    classId: z.string().optional(),
-  })
-  .refine((data) => data.role !== "Student" || !!data.classId, {
-    message: "Select a class for a Student account",
-    path: ["classId"],
-  });
-
-type CreateUserFormValues = z.infer<typeof createUserSchema>;
-
-const editUserSchema = z
-  .object({
-    fullName: z.string().min(1, "Full name is required"),
-    email: z.string().min(1, "Email is required").email("Enter a valid email"),
-    role: z.enum(["Admin", "Teacher", "Student"]),
-    classId: z.string().optional(),
-    isActive: z.boolean(),
-  })
-  .refine((data) => data.role !== "Student" || !!data.classId, {
-    message: "Select a class for a Student account",
-    path: ["classId"],
-  });
-
-type EditUserFormValues = z.infer<typeof editUserSchema>;
 
 function EditUserRow({
   user,
@@ -81,7 +60,7 @@ function EditUserRow({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<EditUserFormValues>({
     resolver: zodResolver(editUserSchema),
@@ -93,7 +72,9 @@ function EditUserRow({
       isActive: user.isActive,
     },
   });
-  const role = watch("role");
+  // `useWatch` rather than `watch()` — the latter returns a function the React
+  // Compiler cannot memoize, which makes it skip compiling the whole component.
+  const role = useWatch({ control, name: "role" });
 
   const onSubmit = async (values: EditUserFormValues) => {
     setError(null);
@@ -107,7 +88,7 @@ function EditUserRow({
       });
       onSaved(response.data);
     } catch (e) {
-      setError(getApiErrorMessage(e));
+      setError(getApiErrorMessage(e, "Could not save this user."));
     }
   };
 
@@ -115,77 +96,67 @@ function EditUserRow({
     <tr className="bg-zinc-50">
       <td colSpan={6} className="p-3">
         <form
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-start"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
           onSubmit={handleSubmit(onSubmit)}
           noValidate
         >
-          <div>
-            <label className="block text-xs font-medium text-zinc-700">Full Name</label>
-            <input
-              className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-              {...register("fullName")}
-            />
-            {errors.fullName && <p className="mt-1 text-xs text-red-600">{errors.fullName.message}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700">Email</label>
-            <input
-              className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-              {...register("email")}
-            />
-            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700">Role</label>
-            <select
-              className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
-              {...register("role")}
-            >
-              {roleOptions.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700">Class</label>
-            <select
-              className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm disabled:bg-zinc-100"
-              disabled={role !== "Student"}
-              {...register("classId")}
-            >
-              <option value="">Select a class</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            {errors.classId && <p className="mt-1 text-xs text-red-600">{errors.classId.message}</p>}
-          </div>
-          <div className="flex items-end gap-2">
-            <label className="flex items-center gap-1.5 text-xs text-zinc-700">
-              <input type="checkbox" className="h-4 w-4 rounded border-zinc-300" {...register("isActive")} />
-              Active
-            </label>
-          </div>
-          {error && <p className="text-xs text-red-600 lg:col-span-5">{error}</p>}
-          <div className="flex gap-2 lg:col-span-5">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Saving…" : "Save"}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
-            >
+          <Input
+            label="Full Name"
+            disabled={isSubmitting}
+            error={errors.fullName?.message}
+            {...register("fullName")}
+          />
+          <Input
+            label="Email"
+            type="email"
+            disabled={isSubmitting}
+            error={errors.email?.message}
+            {...register("email")}
+          />
+          <Select
+            label="Role"
+            disabled={isSubmitting}
+            error={errors.role?.message}
+            {...register("role")}
+          >
+            {roleOptions.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </Select>
+          <Select
+            label="Class"
+            disabled={isSubmitting || role !== "Student"}
+            error={errors.classId?.message}
+            hint={role !== "Student" ? "Only students belong to a class." : undefined}
+            {...register("classId")}
+          >
+            <option value="">Select a class</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          <Checkbox
+            label="Active"
+            wrapperClassName="lg:col-span-4"
+            disabled={isSubmitting}
+            {...register("isActive")}
+          />
+          {error && (
+            <Alert tone="error" className="lg:col-span-4">
+              {error}
+            </Alert>
+          )}
+          <div className="flex flex-wrap gap-2 lg:col-span-4">
+            <Button type="submit" size="sm" isLoading={isSubmitting} loadingText="Saving…">
+              Save
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onCancel} disabled={isSubmitting}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       </td>
@@ -194,50 +165,61 @@ function EditUserRow({
 }
 
 export default function AdminUsersPage() {
+  const { showToast } = useToast();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pendingDeactivation, setPendingDeactivation] = useState<AdminUser | null>(null);
 
   const {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserSchema),
     defaultValues: { fullName: "", email: "", password: "", role: "Teacher", classId: "" },
   });
-  const role = watch("role");
+  const role = useWatch({ control, name: "role" });
 
-  const loadUsers = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
-      const response = await api.get<AdminUser[]>("/admin/users");
-      setUsers(response.data);
+      const [usersRes, classesRes] = await Promise.all([
+        api.get<AdminUser[]>("/admin/users"),
+        api.get<ClassOption[]>("/classes"),
+      ]);
+      setUsers(usersRes.data);
+      setClasses(classesRes.data);
       setListError(null);
     } catch (e) {
-      setListError(getApiErrorMessage(e));
+      setListError(getApiErrorMessage(e, "Could not load users."));
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadUsers();
-    api
-      .get<ClassOption[]>("/classes")
-      .then((res) => setClasses(res.data))
-      .catch(() => {});
-  }, [loadUsers]);
+    // load is also reused by retry and after create/deactivate; its setState calls
+    // only run after the awaited requests settle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    await load();
+    setIsRetrying(false);
+  };
 
   const onSubmit = async (values: CreateUserFormValues) => {
     setFormError(null);
-    setFormSuccess(null);
     try {
       await api.post("/admin/users", {
         fullName: values.fullName,
@@ -246,31 +228,48 @@ export default function AdminUsersPage() {
         role: roleToEnum(values.role),
         classId: values.role === "Student" ? values.classId : null,
       });
-      setFormSuccess("User created.");
       reset();
-      await loadUsers();
+      showToast(`${values.fullName} can now sign in as a ${values.role}.`);
+      await load();
     } catch (e) {
-      setFormError(getApiErrorMessage(e));
+      setFormError(getApiErrorMessage(e, "Could not create the user."));
     }
   };
 
-  const handleToggleActive = async (user: AdminUser) => {
+  const handleActivate = async (user: AdminUser) => {
+    setActionError(null);
     setBusyId(user.id);
     try {
-      if (user.isActive) {
-        await api.delete(`/admin/users/${user.id}`);
-      } else {
-        await api.put(`/admin/users/${user.id}`, {
-          fullName: user.fullName,
-          email: user.email,
-          role: user.role,
-          classId: user.classId,
-          isActive: true,
-        });
-      }
-      await loadUsers();
+      await api.put(`/admin/users/${user.id}`, {
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        classId: user.classId,
+        isActive: true,
+      });
+      showToast(`${user.fullName} reactivated.`);
+      await load();
     } catch (e) {
-      setListError(getApiErrorMessage(e));
+      setActionError(getApiErrorMessage(e, "Could not reactivate this user."));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!pendingDeactivation) {
+      return;
+    }
+    setActionError(null);
+    setBusyId(pendingDeactivation.id);
+    try {
+      await api.delete(`/admin/users/${pendingDeactivation.id}`);
+      showToast(`${pendingDeactivation.fullName} deactivated.`);
+      setPendingDeactivation(null);
+      await load();
+    } catch (e) {
+      setActionError(getApiErrorMessage(e, "Could not deactivate this user."));
+      setPendingDeactivation(null);
     } finally {
       setBusyId(null);
     }
@@ -285,99 +284,97 @@ export default function AdminUsersPage() {
           onSubmit={handleSubmit(onSubmit)}
           noValidate
         >
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Full Name</label>
-            <input
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              {...register("fullName")}
-            />
-            {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName.message}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Email</label>
-            <input
-              type="email"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              {...register("email")}
-            />
-            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Password</label>
-            <input
-              type="password"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              {...register("password")}
-            />
-            {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Role</label>
-            <select
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-              {...register("role")}
-            >
-              {roleOptions.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Input
+            label="Full Name"
+            disabled={isSubmitting}
+            error={errors.fullName?.message}
+            {...register("fullName")}
+          />
+          <Input
+            label="Email"
+            type="email"
+            disabled={isSubmitting}
+            error={errors.email?.message}
+            {...register("email")}
+          />
+          <Input
+            label="Password"
+            type="password"
+            autoComplete="new-password"
+            hint="At least 6 characters."
+            disabled={isSubmitting}
+            error={errors.password?.message}
+            {...register("password")}
+          />
+          <Select
+            label="Role"
+            disabled={isSubmitting}
+            error={errors.role?.message}
+            {...register("role")}
+          >
+            {roleOptions.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </Select>
 
           {role === "Student" && (
-            <div>
-              <label className="block text-sm font-medium text-zinc-700">Class</label>
-              <select
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                {...register("classId")}
-              >
-                <option value="">Select a class</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {errors.classId && <p className="mt-1 text-sm text-red-600">{errors.classId.message}</p>}
-            </div>
+            <Select
+              label="Class"
+              disabled={isSubmitting}
+              error={errors.classId?.message}
+              {...register("classId")}
+            >
+              <option value="">Select a class</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
           )}
 
           {formError && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">{formError}</p>
-          )}
-          {formSuccess && (
-            <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 sm:col-span-2">
-              {formSuccess}
-            </p>
+            <Alert tone="error" className="sm:col-span-2">
+              {formError}
+            </Alert>
           )}
 
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Creating…" : "Create User"}
-            </button>
+            <Button type="submit" isLoading={isSubmitting} loadingText="Creating…">
+              Create User
+            </Button>
           </div>
         </form>
       </section>
 
       <section>
         <h2 className="text-base font-semibold text-zinc-900">Users</h2>
-        {isLoading && <p className="mt-3 text-sm text-zinc-500">Loading users…</p>}
-        {listError && <p className="mt-3 text-sm text-red-600">{listError}</p>}
+        {isLoading && (
+          <div className="mt-3">
+            <LoadingState label="Loading users…" />
+          </div>
+        )}
+        {!isLoading && listError && (
+          <div className="mt-3">
+            <ErrorState message={listError} onRetry={handleRetry} isRetrying={isRetrying} />
+          </div>
+        )}
+        {actionError && (
+          <Alert tone="error" className="mt-3">
+            {actionError}
+          </Alert>
+        )}
         {!isLoading && !listError && (
           <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
             <table className="min-w-full divide-y divide-zinc-200 text-sm">
               <thead className="bg-zinc-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-zinc-600">Name</th>
-                  <th className="px-3 py-2 text-left font-medium text-zinc-600">Email</th>
+                  <th className="hidden px-3 py-2 text-left font-medium text-zinc-600 sm:table-cell">
+                    Email
+                  </th>
                   <th className="px-3 py-2 text-left font-medium text-zinc-600">Role</th>
                   <th className="px-3 py-2 text-left font-medium text-zinc-600">Class</th>
                   <th className="px-3 py-2 text-left font-medium text-zinc-600">Status</th>
@@ -394,41 +391,58 @@ export default function AdminUsersPage() {
                       onSaved={(updated) => {
                         setUsers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
                         setEditingId(null);
+                        showToast("User updated.");
                       }}
                       onCancel={() => setEditingId(null)}
                     />
                   ) : (
                     <tr key={u.id}>
-                      <td className="px-3 py-2 text-zinc-900">{u.fullName}</td>
-                      <td className="px-3 py-2 text-zinc-600">{u.email}</td>
+                      <td className="px-3 py-2 text-zinc-900">
+                        {u.fullName}
+                        {/* The email column is dropped at mobile width to keep the
+                            table readable, so fold it into the name cell there. */}
+                        <span className="block text-xs text-zinc-500 sm:hidden">{u.email}</span>
+                      </td>
+                      <td className="hidden px-3 py-2 text-zinc-600 sm:table-cell">{u.email}</td>
                       <td className="px-3 py-2 text-zinc-600">{userRoleLabel(u.role)}</td>
-                      <td className="px-3 py-2 text-zinc-600">{u.className ?? "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-zinc-600">
+                        {u.className ?? "—"}
+                      </td>
                       <td className="px-3 py-2">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            u.isActive ? "bg-green-50 text-green-700" : "bg-zinc-100 text-zinc-500"
-                          }`}
-                        >
+                        <Badge tone={u.isActive ? "green" : "neutral"}>
                           {u.isActive ? "Active" : "Inactive"}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => setEditingId(u.id)}
-                            className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                            disabled={busyId === u.id}
                           >
                             Edit
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === u.id}
-                            onClick={() => handleToggleActive(u)}
-                            className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {u.isActive ? "Deactivate" : "Activate"}
-                          </button>
+                          </Button>
+                          {u.isActive ? (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => setPendingDeactivation(u)}
+                              disabled={busyId === u.id}
+                            >
+                              Deactivate
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleActivate(u)}
+                              isLoading={busyId === u.id}
+                              loadingText="Working…"
+                            >
+                              Activate
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -446,6 +460,16 @@ export default function AdminUsersPage() {
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={pendingDeactivation !== null}
+        title={`Deactivate ${pendingDeactivation?.fullName ?? "this user"}?`}
+        description="They will not be able to sign in. Their assignments and submissions are kept, and you can reactivate them at any time."
+        confirmLabel="Deactivate"
+        isBusy={busyId !== null && busyId === pendingDeactivation?.id}
+        onConfirm={handleDeactivate}
+        onCancel={() => setPendingDeactivation(null)}
+      />
     </div>
   );
 }

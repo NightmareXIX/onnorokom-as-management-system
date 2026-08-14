@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Spinner } from "@/components/ui/Spinner";
 import { roleHomePath, useAuth } from "@/lib/auth-context";
 
 export default function Home() {
@@ -20,8 +21,12 @@ export default function Home() {
   }, [isLoading, token, role, router]);
 
   return (
-    <div className="flex flex-1 items-center justify-center p-8 text-sm text-zinc-500">
-      Loading…
+    <div
+      role="status"
+      className="flex flex-1 items-center justify-center gap-2 p-8 text-sm text-zinc-500"
+    >
+      <Spinner />
+      <span>Loading…</span>
     </div>
   );
 }

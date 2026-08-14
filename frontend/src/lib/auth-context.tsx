@@ -9,7 +9,13 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { api, getStoredAuth, setStoredAuth, type StoredAuth } from "./api";
+import {
+  api,
+  getStoredAuth,
+  setStoredAuth,
+  setUnauthorizedHandler,
+  type StoredAuth,
+} from "./api";
 import { UserRole, type LoginResponse } from "./types";
 
 interface AuthContextValue {
@@ -49,6 +55,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(getStoredAuth());
     setIsLoading(false);
   }, []);
+
+  useEffect(() => {
+    // The api client clears storage on a 401 from any non-login call; mirror that
+    // into React state and send the user back to /login.
+    setUnauthorizedHandler(() => {
+      setAuth(null);
+      router.replace("/login");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [router]);
 
   const login = useCallback(
     async (email: string, password: string) => {

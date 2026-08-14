@@ -48,16 +48,82 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export function getApiErrorMessage(error: unknown): string {
+/**
+ * `AuthProvider` registers a handler here so an expired or rejected token drops
+ * the session and bounces to /login instead of leaving the user on a page full of
+ * "Something went wrong" errors.
+ */
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      // A 401 from the login call is "wrong credentials", not an expired session.
+      const url = error.config?.url ?? "";
+      if (!url.includes("/auth/login")) {
+        setStoredAuth(null);
+        onUnauthorized?.();
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+function validationMessages(problem: ProblemDetails): string | null {
+  if (!problem.errors || typeof problem.errors !== "object") {
+    return null;
+  }
+  const messages = Object.values(problem.errors)
+    .flat()
+    .filter((message): message is string => typeof message === "string" && message.length > 0);
+  return messages.length > 0 ? messages.join(" ") : null;
+}
+
+/**
+ * Turns an axios failure into something worth showing a user. The API always
+ * answers with RFC-7807 `ProblemDetails`, so the useful message is normally
+ * `title` (or the flattened `errors` dictionary for model-validation failures).
+ */
+export function getApiErrorMessage(
+  error: unknown,
+  fallback = "Something went wrong. Please try again."
+): string {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ProblemDetails>;
-    const problem = axiosError.response?.data;
-    if (problem?.title) {
-      return problem.title;
+
+    if (!axiosError.response) {
+      return "Cannot reach the server. Check that the API is running and try again.";
     }
-    if (axiosError.message) {
-      return axiosError.message;
+
+    const problem = axiosError.response.data;
+    if (problem && typeof problem === "object") {
+      const fromValidation = validationMessages(problem);
+      if (fromValidation) {
+        return fromValidation;
+      }
+      if (problem.detail) {
+        return problem.detail;
+      }
+      if (problem.title) {
+        return problem.title;
+      }
+    }
+
+    switch (axiosError.response.status) {
+      case 401:
+        return "Your session has expired. Please sign in again.";
+      case 403:
+        return "You do not have permission to do that.";
+      case 404:
+        return "That item no longer exists.";
+      default:
+        break;
     }
   }
-  return "Something went wrong. Please try again.";
+  return fallback;
 }

@@ -4,17 +4,74 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { AppHeader } from "@/components/AppHeader";
+import { useToast } from "@/components/ToastProvider";
+import { Alert } from "@/components/ui/Alert";
+import { Badge, SubmissionStatusBadge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/form";
+import { ErrorState, LoadingState } from "@/components/ui/States";
 import { api, getApiErrorMessage } from "@/lib/api";
-import { formatDateTime, submissionStatusLabel } from "@/lib/format";
+import { deadlineDistance, formatDateTime, isPastDeadline } from "@/lib/format";
+import { submissionSchema, type SubmissionFormValues } from "@/lib/schemas";
 import type { Assignment, Submission } from "@/lib/types";
 
-const submissionSchema = z.object({
-  content: z.string().min(1, "Please write an answer before submitting"),
-});
+function AnswerForm({
+  defaultContent,
+  submitLabel,
+  loadingLabel,
+  onSave,
+  onCancel,
+}: {
+  defaultContent: string;
+  submitLabel: string;
+  loadingLabel: string;
+  onSave: (content: string) => Promise<void>;
+  onCancel?: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SubmissionFormValues>({
+    resolver: zodResolver(submissionSchema),
+    defaultValues: { content: defaultContent },
+  });
 
-type SubmissionFormValues = z.infer<typeof submissionSchema>;
+  const onSubmit = async (values: SubmissionFormValues) => {
+    setError(null);
+    try {
+      await onSave(values.content);
+    } catch (e) {
+      setError(getApiErrorMessage(e, "Could not save your answer."));
+    }
+  };
+
+  return (
+    <form className="mt-3 space-y-3" onSubmit={handleSubmit(onSubmit)} noValidate>
+      <Textarea
+        rows={8}
+        placeholder="Write your answer here…"
+        aria-label="Your answer"
+        disabled={isSubmitting}
+        error={errors.content?.message}
+        {...register("content")}
+      />
+      {error && <Alert tone="error">{error}</Alert>}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button type="submit" isLoading={isSubmitting} loadingText={loadingLabel}>
+          {submitLabel}
+        </Button>
+        {onCancel && (
+          <Button variant="secondary" onClick={onCancel} disabled={isSubmitting}>
+            Cancel
+          </Button>
+        )}
+      </div>
+    </form>
+  );
+}
 
 export default function StudentAssignmentDetailPage({
   params,
@@ -22,20 +79,14 @@ export default function StudentAssignmentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [assignment, setAssignment] = useState<Assignment | null>(null);
-  const [existingSubmission, setExistingSubmission] = useState<Submission | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<SubmissionFormValues>({
-    resolver: zodResolver(submissionSchema),
-    defaultValues: { content: "" },
-  });
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [submission, setSubmission] = useState<Submission | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -44,34 +95,46 @@ export default function StudentAssignmentDetailPage({
         api.get<Submission[]>("/submissions/me"),
       ]);
       setAssignment(assignmentRes.data);
-      setExistingSubmission(
-        submissionsRes.data.find((s) => s.assignmentId === id) ?? null
-      );
+      setSubmission(submissionsRes.data.find((s) => s.assignmentId === id) ?? null);
       setLoadError(null);
     } catch (e) {
-      setLoadError(getApiErrorMessage(e));
+      setLoadError(getApiErrorMessage(e, "Could not load this assignment."));
     } finally {
       setIsLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    // load's setState calls only run after the awaited requests settle.
+    // load is also reused by retry; its setState calls only run after the awaited
+    // requests settle.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
-  const onSubmit = async (values: SubmissionFormValues) => {
-    setSubmitError(null);
-    try {
-      const response = await api.post<Submission>(`/assignments/${id}/submissions`, {
-        content: values.content,
-      });
-      setExistingSubmission(response.data);
-    } catch (e) {
-      setSubmitError(getApiErrorMessage(e));
-    }
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    await load();
+    setIsRetrying(false);
   };
+
+  const handleCreate = async (content: string) => {
+    const response = await api.post<Submission>(`/assignments/${id}/submissions`, { content });
+    setSubmission(response.data);
+    showToast("Answer submitted.");
+  };
+
+  const handleUpdate = async (content: string) => {
+    if (!submission) {
+      return;
+    }
+    const response = await api.put<Submission>(`/submissions/${submission.id}`, { content });
+    setSubmission(response.data);
+    setIsEditing(false);
+    showToast("Answer updated.");
+  };
+
+  const closed = assignment ? isPastDeadline(assignment.deadline) : false;
+  const canResubmit = !!assignment?.allowResubmission && !closed;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -82,76 +145,115 @@ export default function StudentAssignmentDetailPage({
           { href: "/student/submissions", label: "My Submissions" },
         ]}
       />
-      <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-6 sm:px-6">
         <Link href="/student" className="text-sm text-zinc-500 hover:text-zinc-900">
           &larr; Back to assignments
         </Link>
 
-        {isLoading && <p className="text-sm text-zinc-500">Loading…</p>}
-        {loadError && <p className="text-sm text-red-600">{loadError}</p>}
+        {isLoading && <LoadingState />}
+        {!isLoading && loadError && (
+          <ErrorState message={loadError} onRetry={handleRetry} isRetrying={isRetrying} />
+        )}
 
         {assignment && (
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <h2 className="text-lg font-semibold text-zinc-900">{assignment.title}</h2>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-600">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <h2 className="text-lg font-semibold text-zinc-900">{assignment.title}</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                {closed ? <Badge tone="red">Closed</Badge> : <Badge tone="green">Open</Badge>}
+                {assignment.allowResubmission && <Badge tone="blue">Resubmission allowed</Badge>}
+              </div>
+            </div>
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-600">
               {assignment.description}
             </p>
             <p className="mt-2 text-sm text-zinc-500">
-              {assignment.subjectName} · {assignment.teacherName} · Due{" "}
-              {formatDateTime(assignment.deadline)} · {assignment.maxMarks} marks
+              {assignment.subjectName} · {assignment.teacherName} · {assignment.maxMarks} marks
+            </p>
+            <p className="mt-0.5 text-sm text-zinc-500">
+              Due {formatDateTime(assignment.deadline)} ({deadlineDistance(assignment.deadline)})
             </p>
           </div>
         )}
 
-        {!isLoading && !loadError && existingSubmission && (
+        {!isLoading && !loadError && assignment && submission && (
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-base font-semibold text-zinc-900">Your Submission</h3>
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                {submissionStatusLabel(existingSubmission.status)}
-              </span>
+              <SubmissionStatusBadge status={submission.status} />
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-800">
-              {existingSubmission.content}
-            </p>
-            <p className="mt-2 text-xs text-zinc-500">
-              Submitted {formatDateTime(existingSubmission.submittedAt)}
-            </p>
-            {existingSubmission.marks !== null && (
-              <div className="mt-3 rounded-md bg-zinc-50 p-3 text-sm">
-                <p className="font-medium text-zinc-900">
-                  Marks: {existingSubmission.marks} / {assignment?.maxMarks}
+
+            {!isEditing && (
+              <>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-800">
+                  {submission.content}
                 </p>
-                {existingSubmission.feedback && (
-                  <p className="mt-1 text-zinc-700">{existingSubmission.feedback}</p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  Submitted {formatDateTime(submission.submittedAt)}
+                  {submission.updatedAt && ` · Updated ${formatDateTime(submission.updatedAt)}`}
+                </p>
+                {submission.marks !== null && (
+                  <div className="mt-3 rounded-md bg-zinc-50 p-3 text-sm">
+                    <p className="font-medium text-zinc-900">
+                      Marks: {submission.marks} / {assignment.maxMarks}
+                    </p>
+                    {submission.feedback && (
+                      <p className="mt-1 whitespace-pre-wrap text-zinc-700">
+                        {submission.feedback}
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
+                <div className="mt-4">
+                  {canResubmit ? (
+                    <Button variant="secondary" onClick={() => setIsEditing(true)}>
+                      Edit submission
+                    </Button>
+                  ) : (
+                    <Alert tone="info">
+                      {closed
+                        ? "The deadline has passed, so this submission can no longer be changed."
+                        : "This assignment does not allow resubmission, so your answer is final."}
+                    </Alert>
+                  )}
+                </div>
+              </>
+            )}
+
+            {isEditing && (
+              <>
+                <Alert tone="warning" className="mt-3">
+                  Resubmitting replaces your answer and clears any marks and feedback it already
+                  received.
+                </Alert>
+                <AnswerForm
+                  defaultContent={submission.content}
+                  submitLabel="Save answer"
+                  loadingLabel="Saving…"
+                  onSave={handleUpdate}
+                  onCancel={() => setIsEditing(false)}
+                />
+              </>
             )}
           </div>
         )}
 
-        {!isLoading && !loadError && !existingSubmission && (
+        {!isLoading && !loadError && assignment && !submission && (
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <h3 className="text-base font-semibold text-zinc-900">Submit Your Answer</h3>
-            <form className="mt-3 space-y-3" onSubmit={handleSubmit(onSubmit)} noValidate>
-              <textarea
-                rows={6}
-                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                placeholder="Write your answer here…"
-                {...register("content")}
+            {closed ? (
+              <Alert tone="warning" className="mt-3">
+                The deadline passed {deadlineDistance(assignment.deadline)}. Late submissions are
+                not accepted.
+              </Alert>
+            ) : (
+              <AnswerForm
+                defaultContent=""
+                submitLabel="Submit"
+                loadingLabel="Submitting…"
+                onSave={handleCreate}
               />
-              {errors.content && (
-                <p className="text-sm text-red-600">{errors.content.message}</p>
-              )}
-              {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? "Submitting…" : "Submit"}
-              </button>
-            </form>
+            )}
           </div>
         )}
       </main>

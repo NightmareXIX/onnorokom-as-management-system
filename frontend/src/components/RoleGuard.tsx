@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { Spinner } from "@/components/ui/Spinner";
 import { roleHomePath, useAuth } from "@/lib/auth-context";
 import type { UserRole } from "@/lib/types";
 
@@ -24,8 +25,12 @@ export function RoleGuard({ role, children }: { role: UserRole; children: ReactN
 
   if (isLoading || !token || currentRole !== role) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-zinc-500">
-        Loading…
+      <div
+        role="status"
+        className="flex flex-1 items-center justify-center gap-2 p-8 text-sm text-zinc-500"
+      >
+        <Spinner />
+        <span>Loading…</span>
       </div>
     );
   }

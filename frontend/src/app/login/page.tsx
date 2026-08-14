@@ -4,16 +4,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { roleHomePath, useAuth } from "@/lib/auth-context";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/form";
 import { getApiErrorMessage } from "@/lib/api";
+import { roleHomePath, useAuth } from "@/lib/auth-context";
+import { loginSchema, type LoginFormValues } from "@/lib/schemas";
 
-const loginSchema = z.object({
-  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
+/** Seeded accounts — one click fills the form so an evaluator can get straight in. */
+const DEMO_ACCOUNTS = [
+  { label: "Admin", email: "admin@school.com", password: "Admin@123" },
+  { label: "Teacher", email: "teacher@school.com", password: "Teacher@123" },
+  { label: "Student", email: "student@school.com", password: "Student@123" },
+];
 
 export default function LoginPage() {
   const { login, token, role, isLoading } = useAuth();
@@ -23,6 +26,7 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -40,61 +44,69 @@ export default function LoginPage() {
     try {
       await login(values.email, values.password);
     } catch (error) {
-      setFormError(getApiErrorMessage(error));
+      setFormError(getApiErrorMessage(error, "Sign in failed. Please try again."));
     }
   };
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-12">
+    <div className="flex flex-1 items-center justify-center px-4 py-10 sm:py-12">
       <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
         <h1 className="text-xl font-semibold text-zinc-900">Sign in</h1>
         <p className="mt-1 text-sm text-zinc-500">Assignment &amp; Submission Management System</p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-zinc-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
-              {...register("email")}
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
-              {...register("password")}
-            />
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-            )}
-          </div>
-
-          {formError && (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
-          )}
-
-          <button
-            type="submit"
+          <Input
+            label="Email"
+            type="email"
+            autoComplete="email"
             disabled={isSubmitting}
-            className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            error={errors.email?.message}
+            {...register("email")}
+          />
+
+          <Input
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            disabled={isSubmitting}
+            error={errors.password?.message}
+            {...register("password")}
+          />
+
+          {formError && <Alert tone="error">{formError}</Alert>}
+
+          <Button
+            type="submit"
+            className="w-full"
+            isLoading={isSubmitting}
+            loadingText="Signing in…"
           >
-            {isSubmitting ? "Signing in…" : "Sign in"}
-          </button>
+            Sign in
+          </Button>
         </form>
+
+        <div className="mt-6 border-t border-zinc-200 pt-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Demo accounts
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <Button
+                key={account.email}
+                variant="secondary"
+                size="sm"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setValue("email", account.email, { shouldValidate: true });
+                  setValue("password", account.password, { shouldValidate: true });
+                  setFormError(null);
+                }}
+              >
+                {account.label}
+              </Button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
