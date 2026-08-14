@@ -72,7 +72,12 @@ BUILD_PLAN.md is the source of truth for implementation detail.
 Update this checklist as phases complete. One line per phase, plus a one-line note on anything
 non-obvious that happened during it.
 
-- [ ] **Phase 0** — Environment & Scaffolding
+- [x] **Phase 0** — Environment & Scaffolding — done 2026-08-14. Backend (`AssignmentSystem.sln`,
+  `AssignmentSystem.Api`, `AssignmentSystem.Tests`) and frontend (`frontend/`, Next.js 16) both
+  scaffolded, build clean, dev servers verified to respond (backend Swagger + frontend both
+  HTTP 200). NuGet packages for Npgsql/EFCore.Design/JwtBearer had to be pinned to `8.0.x`
+  explicitly — `dotnet add package` without a version defaults to latest (10.x on this machine),
+  which isn't compatible with the `net8.0` target. First commit `0fcb4e7`.
 - [ ] **Phase 1** — Database & Domain Models
 - [ ] **Phase 2** — Auth Backend
 - [ ] **Phase 3** — Core Backend API (MVP slice)
